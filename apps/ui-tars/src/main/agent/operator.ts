@@ -33,6 +33,13 @@ export class NutJSElectronOperator extends NutJSOperator {
     ],
   };
 
+  // Screenshot compression parameters (easily adjustable)
+  private readonly screenshotJpegQuality: number = 75; // JPEG quality percentage (0-100) default: 75
+
+  // Resolution scaling factor for screenshots (1.0 = original size, 0.5 = half size)
+  // Reducing resolution can significantly improve inference latency
+  protected readonly resolutionScaleFactor: number = 0.7;
+
   public async screenshot(): Promise<ScreenshotOutput> {
     const {
       physicalSize,
@@ -72,19 +79,68 @@ export class NutJSElectronOperator extends NutJSOperator {
 
     const screenshot = primarySource.thumbnail;
 
+    // Log original screenshot dimensions before compression
+    const originalWidth = screenshot.getSize().width;
+    const originalHeight = screenshot.getSize().height;
+    logger.info(
+      '[screenshot] Original size before compression:',
+      `${originalWidth}x${originalHeight} (${originalWidth * originalHeight} pixels)`,
+    );
+
+    // Apply resolution scaling to reduce image size for faster inference
+    const scaledWidth = Math.round(
+      physicalSize.width * this.resolutionScaleFactor,
+    );
+    const scaledHeight = Math.round(
+      physicalSize.height * this.resolutionScaleFactor,
+    );
+
     const resized = screenshot.resize({
-      width: physicalSize.width,
-      height: physicalSize.height,
+      width: scaledWidth,
+      height: scaledHeight,
     });
 
+    // Convert to JPEG with configurable quality
+    const jpegBuffer = resized.toJPEG(this.screenshotJpegQuality);
+    const compressedBase64 = jpegBuffer.toString('base64');
+
+    // Log compressed image dimensions and size
+    logger.info(
+      '[screenshot] Compressed size after JPEG compression:',
+      `${scaledWidth}x${scaledHeight} (${scaledWidth * scaledHeight} pixels),`,
+      `Resolution scale: ${this.resolutionScaleFactor},`,
+      `Quality: ${this.screenshotJpegQuality}%,`,
+      `Base64 length: ${compressedBase64.length} characters`,
+    );
+
+    // Return original scaleFactor (DPI scale), not modified by resolution scale
+    // Coordinate restoration will be handled in execute() method
     return {
-      base64: resized.toJPEG(75).toString('base64'),
+      base64: compressedBase64,
       scaleFactor,
     };
   }
 
   async execute(params: ExecuteParams): Promise<ExecuteOutput> {
     const { action_type, action_inputs } = params.parsedPrediction;
+
+    // Restore coordinates to original resolution
+    // Since screenshot was scaled down by resolutionScaleFactor,
+    // we need to scale the screen dimensions back up for correct coordinate calculation
+    const restoredParams = {
+      ...params,
+      screenWidth: Math.round(params.screenWidth / this.resolutionScaleFactor),
+      screenHeight: Math.round(
+        params.screenHeight / this.resolutionScaleFactor,
+      ),
+    };
+
+    logger.info(
+      '[NutJSElectronOperator] Coordinate restoration:',
+      `Scaled screen: ${params.screenWidth}x${params.screenHeight}`,
+      `Original screen: ${restoredParams.screenWidth}x${restoredParams.screenHeight}`,
+      `Resolution scale factor: ${this.resolutionScaleFactor}`,
+    );
 
     if (action_type === 'type' && env.isWindows && action_inputs?.content) {
       const content = action_inputs.content?.trim();
@@ -99,7 +155,7 @@ export class NutJSElectronOperator extends NutJSOperator {
       await sleep(50);
       clipboard.writeText(originalClipboard);
     } else {
-      return await super.execute(params);
+      return await super.execute(restoredParams);
     }
   }
 }

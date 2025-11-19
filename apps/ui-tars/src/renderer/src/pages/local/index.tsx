@@ -16,6 +16,8 @@ import { ScrollArea } from '@renderer/components/ui/scroll-area';
 
 import { useStore } from '@renderer/hooks/useStore';
 import { useSession } from '@renderer/hooks/useSession';
+import { useRunAgent } from '@renderer/hooks/useRunAgent';
+import { useSetting } from '@renderer/hooks/useSetting';
 import Prompts from '../../components/Prompts';
 import { IMAGE_PLACEHOLDER } from '@ui-tars/shared/constants';
 import {
@@ -50,10 +52,23 @@ const LocalOperator = () => {
   const state = useLocation().state as RouterState;
   const navigate = useNavigate();
   const { setOpen } = useSidebar();
+  const { settings } = useSetting();
 
   const { status, messages = [], thinking, errorMsg } = useStore();
   const containerRef = useRef<HTMLDivElement>(null);
-  const suggestions: string[] = [];
+  const [showSuggestions, setShowSuggestions] = useState(true);
+  const defaultSuggestions: string[] = [
+    '打开浏览器用携程搜索后天深圳飞往北京的机票',
+    '用钉钉帮我创建一个今天晚上七点的会议日程',
+    '打开浏览器用淘宝搜索65寸OLED电视',
+    '用钉钉给谢建辉发一条消息，内容是：你好，我是GUIAgent',
+    '用Word写一篇关于AI Agent的300字报告，并保存到桌面',
+    '关闭所有浏览器窗口',
+  ];
+  const suggestions =
+    settings.commandSuggestions && settings.commandSuggestions.length > 0
+      ? settings.commandSuggestions
+      : defaultSuggestions;
   const [selectImg, setSelectImg] = useState<number | undefined>(undefined);
   const [initId, setInitId] = useState('');
   const {
@@ -123,8 +138,49 @@ const LocalOperator = () => {
     }, 100);
   }, [messages, thinking, errorMsg]);
 
+  // Reset suggestions when there are new chat messages
+  useEffect(() => {
+    if (chatMessages?.length > 0) {
+      setShowSuggestions(false);
+    }
+  }, [chatMessages]);
+
+  const { run } = useRunAgent();
+  const { getSession, updateSession } = useSession();
+
   const handleSelect = async (suggestion: string) => {
-    await api.setInstructions({ instructions: suggestion });
+    // Update the session name
+    const session = await getSession(state.sessionId);
+    await updateSession(state.sessionId, {
+      name: suggestion,
+      meta: {
+        ...session!.meta,
+      },
+    });
+
+    // 在当前会话中插入用户消息
+    const newMessage = {
+      from: 'human' as const,
+      value: suggestion,
+      timing: { start: Date.now(), end: Date.now(), cost: 0 },
+    };
+
+    // 更新会话消息
+    const updatedMessages = [...chatMessages, newMessage];
+    updateMessages(state.sessionId, updatedMessages);
+
+    // 隐藏建议区
+    setShowSuggestions(false);
+
+    // 滚动到底部以显示最新消息
+    setTimeout(() => {
+      containerRef.current?.scrollIntoView(false);
+    }, 100);
+
+    // 调用run函数启动agent
+    run(suggestion, updatedMessages, () => {
+      // Clear the instructions after run starts
+    });
   };
 
   const handleImageSelect = async (index: number) => {
@@ -161,6 +217,7 @@ const LocalOperator = () => {
       setNavDialogOpen(true);
     } else {
       onNewChat();
+      setShowSuggestions(true);
     }
   }, [needsConfirm]);
 
@@ -216,9 +273,11 @@ const LocalOperator = () => {
     return (
       <ScrollArea className="h-full px-4">
         <div ref={containerRef}>
-          {!chatMessages?.length && suggestions?.length > 0 && (
-            <Prompts suggestions={suggestions} onSelect={handleSelect} />
-          )}
+          {!chatMessages?.length &&
+            suggestions?.length > 0 &&
+            showSuggestions && (
+              <Prompts suggestions={suggestions} onSelect={handleSelect} />
+            )}
 
           {chatMessages?.map((message, idx) => {
             if (message?.from === 'human') {
@@ -240,11 +299,56 @@ const LocalOperator = () => {
               );
             }
 
-            const { predictionParsed, screenshotBase64WithElementMarker } =
-              message;
+            const {
+              predictionParsed,
+              screenshotBase64WithElementMarker,
+              value,
+              isPredictionSuggestions,
+            } = message as any;
 
             // Find the finished step (VL 1.5 Model)
             const finishedStep = getFinishedContent(predictionParsed);
+
+            // 检查是否是建议动作消息
+            if (isPredictionSuggestions && value) {
+              const lines = value
+                .split('\n')
+                .map((line) => line.trim())
+                .filter((line) => line);
+              const suggestions = lines.filter(
+                (line) =>
+                  !line.includes('接下来要不要我帮您') &&
+                  !line.includes('：') &&
+                  line.length > 0,
+              );
+
+              return (
+                <div key={idx} className="mb-4">
+                  <div className="flex justify-start mb-2">
+                    <div className="max-w-[80%] px-4 py-2 rounded-lg bg-gray-100 text-gray-700">
+                      <div className="font-medium mb-2">
+                        接下来要不要我帮您：
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        {suggestions.map((suggestion, sIdx) => (
+                          <button
+                            key={sIdx}
+                            onClick={() => handleSelect(suggestion)}
+                            className="px-4 py-2.5 bg-white rounded-lg shadow-sm border border-gray-200 
+                                     hover:bg-gray-50 hover:border-gray-300 hover:shadow-md
+                                     active:bg-gray-100 active:scale-[0.98]
+                                     transition-all duration-150 ease-in-out
+                                     text-left text-sm text-gray-700 cursor-pointer"
+                          >
+                            {suggestion}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
 
             return (
               <div key={idx}>
@@ -257,6 +361,11 @@ const LocalOperator = () => {
                 ) : null}
 
                 {!!finishedStep && <AssistantTextMessage text={finishedStep} />}
+
+                {/* 显示没有 predictionParsed 但有 value 的 gpt 消息（如预测的下一步动作） */}
+                {!predictionParsed && value && !isPredictionSuggestions && (
+                  <AssistantTextMessage text={value} />
+                )}
               </div>
             );
           })}
@@ -271,7 +380,7 @@ const LocalOperator = () => {
   return (
     <div className="flex flex-col w-full h-full">
       <NavHeader
-        title={state.operator}
+        title="返回主页" //{state.operator}
         onBack={handleBack}
         docUrl="https://github.com/bytedance/UI-TARS-desktop/"
       ></NavHeader>
@@ -284,7 +393,7 @@ const LocalOperator = () => {
             ></SidebarTrigger>
             <Button variant="outline" size="sm" onClick={handleNewChat}>
               <MessageCirclePlus />
-              New Chat
+              新建对话
             </Button>
           </div>
           {renderChatList()}
@@ -298,7 +407,7 @@ const LocalOperator = () => {
         <Card className="flex-1 basis-3/5 p-3 h-[calc(100vh-76px)]">
           <Tabs defaultValue="screenshot" className="flex-1">
             <TabsList>
-              <TabsTrigger value="screenshot">ScreenShot</TabsTrigger>
+              <TabsTrigger value="screenshot">屏幕截图</TabsTrigger>
             </TabsList>
             <TabsContent value="screenshot">
               <ImageGallery
