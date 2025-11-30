@@ -31,7 +31,11 @@ import {
   afterAgentRun,
   getLocalBrowserSearchEngine,
 } from '../utils/agent';
-import { showWidgetWindow, showScreenWaterFlow } from '../window/ScreenMarker';
+import {
+  showWidgetWindow,
+  showScreenWaterFlow,
+  showHumanInterventionWindow,
+} from '../window/ScreenMarker';
 import { FREE_MODEL_BASE_URL } from '../remote/shared';
 import { getAuthHeader } from '../remote/auth';
 import { ProxyClient } from '../remote/proxyClient';
@@ -286,6 +290,7 @@ export const runAgent = async (
         // SOP 命中匹配后，隐藏主窗口
         showWidgetWindow();
         showScreenWaterFlow();
+        showHumanInterventionWindow();
         hideMainWindow();
 
         // 添加 SOP 执行开始的消息
@@ -344,14 +349,19 @@ export const runAgent = async (
           });
         };
 
-        // 执行SOP，传入回调函数
-        await sopManager.executeSOP(sop, operator, onActionExecute);
+        // 执行SOP，传入回调函数和abortController
+        await sopManager.executeSOP(
+          sop,
+          operator,
+          onActionExecute,
+          abortController || undefined,
+        );
 
         // SOP 执行结束后，显示主窗口
         //hideWidgetWindow();
         //closeScreenMarker();
         //hideScreenWaterFlow();
-        showMainWindow();
+        //showMainWindow();
 
         // SOP 执行完成后，等待 1000ms 再进行截图
         await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -406,10 +416,16 @@ export const runAgent = async (
       // SOP 执行失败时，确保显示主窗口
       showMainWindow();
 
+      // 检查是否是用户终止的情况
+      const isUserAborted =
+        error instanceof Error && error.message === 'SOP执行被用户终止';
+
       // 添加 SOP 执行失败的消息
       const failureMessage: ConversationWithSoM = {
         from: 'gpt',
-        value: `标准操作程序执行失败，将使用常规模式继续执行任务`,
+        value: isUserAborted
+          ? '标准操作程序已被用户终止'
+          : '标准操作程序执行失败，将使用常规模式继续执行任务',
         timing: {
           start: Date.now(),
           end: Date.now(),
@@ -426,10 +442,17 @@ export const runAgent = async (
       setState({
         ...getState(),
         messages: [...messagesWithoutSop, failureMessage],
+        // 如果是用户终止，设置状态为END
+        status: isUserAborted ? StatusEnum.END : getState().status,
       });
 
       // 清空临时数组，不保留SOP执行过程中的消息
       sopExecutionMessages.length = 0;
+
+      // 如果是用户终止，直接返回，不继续执行常规模式
+      if (isUserAborted) {
+        return;
+      }
     }
   }
 
@@ -622,6 +645,12 @@ const clearTempFolder = () => {
 // 工具函数：保存模型请求到JSON文件
 const saveModelRequest = (requestId: string, messages: any[]) => {
   try {
+    // 检查是否启用了保存请求到JSON的设置
+    const settings = SettingStore.getStore();
+    if (!settings.saveRequestsToJson) {
+      return;
+    }
+
     const tempPath = path.join(__dirname, '..', '..', 'temp');
 
     if (!fs.existsSync(tempPath)) {

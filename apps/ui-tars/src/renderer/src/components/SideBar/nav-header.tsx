@@ -13,14 +13,16 @@ import logoVector from '@resources/assistant.png?url';
 
 interface HeaderProps {
   showTrigger: boolean;
+  onLogoClick?: () => void;
 }
 
-export function UITarsHeader({ showTrigger }: HeaderProps) {
+export function UITarsHeader({ showTrigger, onLogoClick }: HeaderProps) {
   return (
     <SidebarMenu className="items-center">
       <SidebarMenuButton
         // size="lg"
         className="group-data-[collapsible=icon]:p-0! mb-2 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground hover:bg-transparent"
+        onClick={onLogoClick}
       >
         <div className="flex aspect-square size-8 items-center justify-center rounded-lg">
           <img src={logoVector} alt="" />

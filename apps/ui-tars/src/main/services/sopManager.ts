@@ -15,6 +15,21 @@ import {
 import { RemoteComputerOperator } from '@main/remote/operators';
 import { getScreenSize } from '@main/utils/screen';
 
+/**
+ * 获取 SOP 目录路径
+ * 开发环境：使用相对路径
+ * 生产环境：使用 app.getAppPath() 获取应用根目录
+ */
+function getSOPDir(): string {
+  if (app.isPackaged) {
+    // 生产环境：app.getAppPath() 返回 app.asar 或解压后的目录
+    return join(app.getAppPath(), 'sop');
+  } else {
+    // 开发环境
+    return join(__dirname, '../../../ui-tars/sop');
+  }
+}
+
 interface SOPAction {
   reflection: any;
   thought: string;
@@ -79,6 +94,7 @@ export class SOPManager {
     try {
       const sopDir = this.getSOPDir();
       const tocPath = join(sopDir, 'table_of_contents.md');
+      logger.info(`[SOPManager] SOP 目录: ${sopDir}`);
       const tocContent = readFileSync(tocPath, 'utf-8');
 
       // 提取 JSON 部分
@@ -197,10 +213,18 @@ export class SOPManager {
       | RemoteComputerOperator
       | RemoteBrowserOperator,
     onActionExecute?: (action: SOPAction, index: number, total: number) => void,
+    abortController?: AbortController,
   ): Promise<void> {
     logger.info(`[SOPManager] 开始执行 SOP: ${sop.title}`);
+    await new Promise((resolve) => setTimeout(resolve, 2000));
 
     for (let i = 0; i < sop.actions.length; i++) {
+      // 检查是否收到终止信号
+      if (abortController?.signal.aborted) {
+        logger.info(`[SOPManager] 收到终止信号，停止执行 SOP: ${sop.title}`);
+        throw new Error('SOP执行被用户终止');
+      }
+
       const action = sop.actions[i];
       logger.info(
         `[SOPManager] 执行动作 ${i + 1}/${sop.actions.length}: ${action.action_type}`,
@@ -212,13 +236,38 @@ export class SOPManager {
       }
 
       try {
+        // 在执行动作前再次检查终止信号
+        if (abortController?.signal.aborted) {
+          logger.info(`[SOPManager] 收到终止信号，停止执行 SOP: ${sop.title}`);
+          throw new Error('SOP执行被用户终止');
+        }
+
         await this.executeAction(action, operator);
 
-        // 每个动作之间等待 1000ms
+        // 在等待期间也要检查终止信号
         if (i < sop.actions.length - 1) {
-          await new Promise((resolve) => setTimeout(resolve, 500));
+          // 使用可中断的等待
+          const waitTime = 3000;
+          const checkInterval = 100; // 每100ms检查一次终止信号
+          let elapsed = 0;
+
+          while (elapsed < waitTime) {
+            if (abortController?.signal.aborted) {
+              logger.info(
+                `[SOPManager] 收到终止信号，停止执行 SOP: ${sop.title}`,
+              );
+              throw new Error('SOP执行被用户终止');
+            }
+            await new Promise((resolve) => setTimeout(resolve, checkInterval));
+            elapsed += checkInterval;
+          }
         }
       } catch (error) {
+        // 如果是用户终止的错误，直接抛出，不需要额外日志
+        if (error instanceof Error && error.message === 'SOP执行被用户终止') {
+          throw error;
+        }
+
         logger.error(
           `[SOPManager] 执行动作失败 (${i + 1}/${sop.actions.length}):`,
           error,

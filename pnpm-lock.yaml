@@ -107,6 +107,9 @@ importers:
       sharp:
         specifier: 0.33.3
         version: 0.33.3
+      ws:
+        specifier: ^8.18.0
+        version: 8.18.3(bufferutil@4.0.9)(utf-8-validate@6.0.5)
     devDependencies:
       '@common/electron-build':
         specifier: workspace:*
@@ -180,6 +183,9 @@ importers:
       '@types/node':
         specifier: ^20.14.8
         version: 20.17.17
+      '@types/ws':
+        specifier: ^8.5.13
+        version: 8.18.1
       '@typescript-eslint/eslint-plugin':
         specifier: ^5.0.0
         version: 5.62.0(@typescript-eslint/parser@5.62.0(eslint@8.57.1)(typescript@5.7.3))(eslint@8.57.1)(typescript@5.7.3)
@@ -5346,6 +5352,9 @@ packages:
 
   '@types/which@3.0.4':
     resolution: {integrity: sha512-liyfuo/106JdlgSchJzXEQCVArk0CvevqPote8F8HgWgJ3dRCcTHgJIsLDuee0kxk/mhbInzIZk3QWSZJ8R+2w==}
+
+  '@types/ws@8.18.1':
+    resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
 
   '@types/yauzl@2.10.3':
     resolution: {integrity: sha512-oJoftv0LSuaDZE3Le4DbKX+KS9G36NzOeSap90UIK0yMA/NhKJhqlSGtNDORNRaIbQfzjXDrQa0ytJ6mNRGz/Q==}
@@ -11084,18 +11093,6 @@ packages:
       utf-8-validate:
         optional: true
 
-  ws@8.18.1:
-    resolution: {integrity: sha512-RKW2aJZMXeMxVpnZ6bck+RswznaxmzdULiBr6KY7XkTnW8uvt0iT9H5DkHUChXrc+uurzwa0rVI16n/Xzjdz1w==}
-    engines: {node: '>=10.0.0'}
-    peerDependencies:
-      bufferutil: ^4.0.1
-      utf-8-validate: '>=5.0.2'
-    peerDependenciesMeta:
-      bufferutil:
-        optional: true
-      utf-8-validate:
-        optional: true
-
   ws@8.18.3:
     resolution: {integrity: sha512-PEIGCY5tSlUt50cqyMXfCzX+oOPqN0vuGqWzbcJ2xvnkzkq46oOpz7dQaTDBdfICb4N14+GARUDw2XV2N4tvzg==}
     engines: {node: '>=10.0.0'}
@@ -12068,7 +12065,7 @@ snapshots:
       deepmerge: 4.3.1
       dotenv: 16.4.7
       openai: 5.5.1(ws@8.18.3(bufferutil@4.0.9)(utf-8-validate@6.0.5))(zod@3.25.76)
-      ws: 8.18.1(bufferutil@4.0.9)(utf-8-validate@6.0.5)
+      ws: 8.18.3(bufferutil@4.0.9)(utf-8-validate@6.0.5)
       zod: 3.25.76
       zod-to-json-schema: 3.24.3(zod@3.25.76)
     transitivePeerDependencies:
@@ -16147,6 +16144,10 @@ snapshots:
   '@types/which@2.0.2': {}
 
   '@types/which@3.0.4': {}
+
+  '@types/ws@8.18.1':
+    dependencies:
+      '@types/node': 20.14.8
 
   '@types/yauzl@2.10.3':
     dependencies:
@@ -21010,7 +21011,7 @@ snapshots:
       debug: 4.4.0
       devtools-protocol: 0.0.1425554
       typed-query-selector: 2.12.0
-      ws: 8.18.1(bufferutil@4.0.9)(utf-8-validate@6.0.5)
+      ws: 8.18.3(bufferutil@4.0.9)(utf-8-validate@6.0.5)
     transitivePeerDependencies:
       - bare-buffer
       - bufferutil
@@ -23392,11 +23393,6 @@ snapshots:
   wrappy@1.0.2: {}
 
   ws@7.5.10(bufferutil@4.0.9)(utf-8-validate@6.0.5):
-    optionalDependencies:
-      bufferutil: 4.0.9
-      utf-8-validate: 6.0.5
-
-  ws@8.18.1(bufferutil@4.0.9)(utf-8-validate@6.0.5):
     optionalDependencies:
       bufferutil: 4.0.9
       utf-8-validate: 6.0.5
