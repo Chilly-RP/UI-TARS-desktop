@@ -74,37 +74,17 @@ export class SOPManager {
   }
 
   /**
-   * 获取 SOP 目录的路径
-   */
-  private getSOPDir(): string {
-    // 在开发环境中，使用相对路径
-    if (process.env.NODE_ENV === 'development') {
-      return join(__dirname, '../../../ui-tars/sop');
-    }
-    
-    // 在生产环境中，使用 app.getAppPath() 获取应用程序路径
-    const appPath = app.getAppPath();
-    return join(appPath, 'sop');
-  }
-
-  /**
    * 加载 SOP 索引
    */
   async loadSOPIndex(): Promise<void> {
     try {
-      const sopDir = this.getSOPDir();
+      const sopDir = getSOPDir();
       const tocPath = join(sopDir, 'table_of_contents.md');
       logger.info(`[SOPManager] SOP 目录: ${sopDir}`);
       const tocContent = readFileSync(tocPath, 'utf-8');
 
       // 提取 JSON 部分
-      let jsonMatch = tocContent.match(/```json\n([\s\S]*?)\n```/);
-      
-      // 如果第一个模式不匹配，尝试第二个模式（没有换行符）
-      if (!jsonMatch) {
-        jsonMatch = tocContent.match(/```json\r?\n([\s\S]*?)\r?\n```/);
-      }
-      
+      const jsonMatch = tocContent.match(/```json\n([\s\S]*?)\n```/);
       if (!jsonMatch) {
         throw new Error('无法解析 table_of_contents.md 中的 JSON 数据');
       }
@@ -159,12 +139,12 @@ export class SOPManager {
     }
 
     try {
-      const sopDir = this.getSOPDir();
+      const sopDir = getSOPDir();
       const sopPath = join(sopDir, filePath);
       const sopContent = readFileSync(sopPath, 'utf-8');
 
       // 提取前置元数据
-      let frontMatterMatch = sopContent.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+      const frontMatterMatch = sopContent.match(/^---\n([\s\S]*?)\n---/);
       if (!frontMatterMatch) {
         throw new Error('无法解析 SOP 文件的前置元数据');
       }
@@ -177,7 +157,7 @@ export class SOPManager {
       );
 
       // 提取动作序列
-      let actionsMatch = sopContent.match(/```json\r?\n([\s\S]*?)\r?\n```/);
+      const actionsMatch = sopContent.match(/```json\n([\s\S]*?)\n```/);
       if (!actionsMatch) {
         throw new Error('无法解析 SOP 文件中的动作序列');
       }
