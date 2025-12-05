@@ -11,6 +11,9 @@ import { FREE_MODEL_BASE_URL } from '../remote/shared';
 import { getAuthHeader } from '../remote/auth';
 import { ProxyClient } from '../remote/proxyClient';
 import { UITarsModel, type UITarsModelConfig } from '@ui-tars/sdk/core';
+import { SettingStore } from '@main/store/setting';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export interface ModelConfigResult {
   modelConfig: UITarsModelConfig;
@@ -105,14 +108,10 @@ class RequestSavingUITarsModel extends UITarsModel {
 const saveModelRequest = (requestId: string, messages: any[]) => {
   try {
     // 检查是否启用了保存请求到JSON的设置
-    const { SettingStore } = require('@main/store/setting');
     const settings = SettingStore.getStore();
     if (!settings.saveRequestsToJson) {
       return;
     }
-
-    const fs = require('fs');
-    const path = require('path');
 
     const tempPath = path.join(__dirname, '..', '..', 'temp');
 

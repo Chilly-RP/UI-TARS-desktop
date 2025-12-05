@@ -72,16 +72,14 @@ export const runAgent = async (
     abortController || undefined,
   );
 
-  // 如果 SOP 执行成功且用户没有中止，则直接返回
-  if (sopResult.success && !sopResult.userAborted) {
-    // 将 SOP 执行过程中的消息添加到历史消息
-    stateManager.addHistoryMessages(sopResult.historyMessages);
-    return;
-  }
-
   // 如果用户中止了 SOP 执行，则直接返回
   if (sopResult.userAborted) {
     return;
+  }
+
+  // 将 SOP 执行过程中的消息添加到历史消息
+  if (sopResult.success) {
+    stateManager.addHistoryMessages(sopResult.historyMessages);
   }
 
   // 创建模型配置
