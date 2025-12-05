@@ -131,7 +131,7 @@ export class ActionPredictor {
    * 构建预测提示词
    */
   private static _buildPredictionPrompt(finishedContent: string): string {
-    return `你是一个GUI AGgent，帮助用户来执行任务，用户已经完成了${finishedContent}\n\n
+    return `你是一个GUI Agent，帮助用户来执行任务，用户已经完成了${finishedContent}\n\n
     你需要根据当前已经完成的任务来预测用户接下来可能的1-4个动作，每个动作都用\n分开,动作内容保持精简。
     请按照下面的格式回复：
     接下来要不要我帮您：\n
