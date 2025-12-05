@@ -51,6 +51,8 @@ export interface InvokeParams {
   /** == Response API only == */
   /** previous response id */
   previousResponseId?: string;
+  /** PNG quality for image preprocessing (1-100), @default 60 */
+  preprocessPngQuality?: number;
 }
 
 export interface InvokeOutput {
@@ -106,6 +108,8 @@ export interface GUIAgentConfig<TOperator> {
   /** Time interval between two loop iterations (in milliseconds), @default 0 */
   loopIntervalInMs?: number;
   uiTarsVersion?: UITarsModelVersion;
+  /** PNG quality for image preprocessing (1-100), @default 60 */
+  preprocessPngQuality?: number;
 }
 
 export interface AgentContext<T = Operator> extends GUIAgentConfig<T> {

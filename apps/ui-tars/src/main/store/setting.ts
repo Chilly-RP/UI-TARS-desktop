@@ -30,6 +30,10 @@ export const DEFAULT_SETTING: LocalStore = {
   operator: Operator.LocalComputer,
   reportStorageBaseUrl: '',
   utioBaseUrl: '',
+  // Image Compression Settings
+  resolutionScaleFactor: 0.7,
+  screenshotJpegQuality: 75,
+  preprocessPngQuality: 60,
 };
 
 export class SettingStore {

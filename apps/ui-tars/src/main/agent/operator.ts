@@ -16,6 +16,7 @@ import * as env from '@main/env';
 import { logger } from '@main/logger';
 import { sleep } from '@ui-tars/shared/utils';
 import { getScreenSize } from '@main/utils/screen';
+import { SettingStore } from '@main/store/setting';
 
 export class NutJSElectronOperator extends NutJSOperator {
   static MANUAL = {
@@ -33,12 +34,16 @@ export class NutJSElectronOperator extends NutJSOperator {
     ],
   };
 
-  // Screenshot compression parameters (easily adjustable)
-  private readonly screenshotJpegQuality: number = 75; // JPEG quality percentage (0-100) default: 75
+  // Screenshot compression parameters - now read from settings
+  private get screenshotJpegQuality(): number {
+    return SettingStore.get('screenshotJpegQuality') ?? 75;
+  }
 
   // Resolution scaling factor for screenshots (1.0 = original size, 0.5 = half size)
   // Reducing resolution can significantly improve inference latency
-  protected readonly resolutionScaleFactor: number = 0.7;
+  protected get resolutionScaleFactor(): number {
+    return SettingStore.get('resolutionScaleFactor') ?? 0.7;
+  }
 
   public async screenshot(): Promise<ScreenshotOutput> {
     const {

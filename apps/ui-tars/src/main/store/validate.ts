@@ -29,6 +29,14 @@ export const PresetSchema = z.object({
   loopIntervalInMs: z.number().min(0).max(3000).optional(),
   searchEngineForBrowser: z.nativeEnum(SearchEngineForSettings).optional(),
 
+  // Image Compression Settings
+  /** Resolution scale factor for screenshots (0.1-1.0), lower = smaller image, faster inference */
+  resolutionScaleFactor: z.number().min(0.1).max(1).optional(),
+  /** JPEG quality for screenshot compression (1-100), lower = smaller file size */
+  screenshotJpegQuality: z.number().min(1).max(100).optional(),
+  /** PNG quality for image preprocessing (1-100), lower = smaller file size */
+  preprocessPngQuality: z.number().min(1).max(100).optional(),
+
   // Report Settings
   reportStorageBaseUrl: z.string().url().optional(),
   utioBaseUrl: z.string().url().optional(),

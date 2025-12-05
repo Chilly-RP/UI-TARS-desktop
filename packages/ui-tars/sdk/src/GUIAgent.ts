@@ -257,6 +257,7 @@ export class GUIAgent<T extends Operator> extends BaseGUIAgent<
             'X-Session-Id': sessionId,
           },
           previousResponseId,
+          preprocessPngQuality: this.config.preprocessPngQuality,
         };
         const {
           prediction,

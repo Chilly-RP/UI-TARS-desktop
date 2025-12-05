@@ -190,12 +190,13 @@ export function replaceBase64Prefix(base64: string) {
   return base64.replace(/^data:image\/\w+;base64,/, '');
 }
 
-// Preprocessing image parameters (easily adjustable)
-const preprocessPngQuality: number = 60; // PNG quality percentage (0-100)
+// Default preprocessing image quality (can be overridden by parameter)
+const DEFAULT_PREPROCESS_PNG_QUALITY: number = 60; // PNG quality percentage (0-100)
 
 export async function preprocessResizeImage(
   image_base64: string,
   maxPixels: number,
+  pngQuality: number = DEFAULT_PREPROCESS_PNG_QUALITY,
 ): Promise<string> {
   try {
     const imageBuffer = Buffer.from(image_base64, 'base64');
@@ -221,13 +222,13 @@ export async function preprocessResizeImage(
           w: newWidth,
           h: newHeight,
         })
-        .getBuffer('image/png', { quality: preprocessPngQuality });
+        .getBuffer('image/png', { quality: pngQuality });
 
       return resized.toString('base64');
     }
 
     const base64 = await image.getBase64('image/png', {
-      quality: preprocessPngQuality,
+      quality: pngQuality,
     });
 
     return replaceBase64Prefix(base64);

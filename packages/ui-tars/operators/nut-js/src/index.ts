@@ -51,7 +51,10 @@ export class NutJSOperator extends Operator {
 
   // Resolution scaling factor for screenshots (1.0 = original size, 0.5 = half size)
   // Reducing resolution can significantly improve inference latency
-  protected readonly resolutionScaleFactor: number = 1.0;
+  // Using getter to allow subclasses to override this value
+  protected get resolutionScaleFactor(): number {
+    return 1.0;
+  }
 
   public async screenshot(): Promise<ScreenshotOutput> {
     const { logger } = useContext();

@@ -225,6 +225,7 @@ const createGUIAgent = (
     maxLoopCount: settings.maxLoopCount,
     loopIntervalInMs: settings.loopIntervalInMs,
     uiTarsVersion: modelConfigResult.modelVersion,
+    preprocessPngQuality: settings.preprocessPngQuality,
   });
 };
 

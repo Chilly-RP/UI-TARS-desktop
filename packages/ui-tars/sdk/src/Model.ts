@@ -282,11 +282,12 @@ export class UITarsModel extends Model {
       uiTarsVersion,
       headers,
       previousResponseId,
+      preprocessPngQuality,
     } = params;
     const { logger, signal } = useContext();
 
     logger?.info(
-      `[UITarsModel] invoke: screenContext=${JSON.stringify(screenContext)}, scaleFactor=${scaleFactor}, uiTarsVersion=${uiTarsVersion}, useResponsesApi=${this.modelConfig.useResponsesApi}`,
+      `[UITarsModel] invoke: screenContext=${JSON.stringify(screenContext)}, scaleFactor=${scaleFactor}, uiTarsVersion=${uiTarsVersion}, useResponsesApi=${this.modelConfig.useResponsesApi}, preprocessPngQuality=${preprocessPngQuality}`,
     );
 
     const maxPixels =
@@ -298,7 +299,10 @@ export class UITarsModel extends Model {
           : MAX_PIXELS_V1_0;
     const compressedImages = await Promise.all(
       // maxPixels 为最大像素数，这里可以根据情况压缩
-      images.map((image) => preprocessResizeImage(image, maxPixels)),
+      // preprocessPngQuality 为 PNG 质量，如果传入则使用，否则使用默认值 60
+      images.map((image) =>
+        preprocessResizeImage(image, maxPixels, preprocessPngQuality),
+      ),
     );
 
     const messages = convertToOpenAIMessages({
