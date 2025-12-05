@@ -5,7 +5,7 @@
 
 import { logger } from '@main/logger';
 import { UITarsModelVersion } from '@ui-tars/shared/constants';
-import { VLMProviderV2, Operator } from '@main/store/types';
+import { Operator } from '@main/store/types';
 import { getModelVersion, getSpByModelVersion } from '../utils/agent';
 import { FREE_MODEL_BASE_URL } from '../remote/shared';
 import { getAuthHeader } from '../remote/auth';

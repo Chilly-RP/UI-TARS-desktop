@@ -4,8 +4,8 @@
  */
 
 import { logger } from '@main/logger';
-import { StatusEnum } from '@ui-tars/shared/types';
-import { type ConversationWithSoM, type Message } from '@main/shared/types';
+import { StatusEnum, type Message } from '@ui-tars/shared/types';
+import { type ConversationWithSoM } from '@main/shared/types';
 import { AppState } from '@main/store/types';
 
 /**
