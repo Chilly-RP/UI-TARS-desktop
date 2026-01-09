@@ -56,6 +56,10 @@ interface ExtendedStreamProcessingState extends StreamProcessingState {
   parameterBracketDepth: number;
   // Whether we've started collecting parameters content
   parameterContentStarted: boolean;
+  // Whether we're currently inside a <think> tag
+  insideThinkTag: boolean;
+  // Buffer for collecting think tag content (reasoning)
+  thinkTagBuffer: string;
 }
 
 /**
@@ -166,6 +170,8 @@ ${JSON.stringify(schema)}
       currentToolCallId: '',
       parameterBracketDepth: 0,
       parameterContentStarted: false,
+      insideThinkTag: false,
+      thinkTagBuffer: '',
     };
   }
 
@@ -539,11 +545,48 @@ ${JSON.stringify(schema)}
   }
 
   /**
+   * Check if the partial tag buffer could be the start of a think tag
+   */
+  private isPossibleThinkTagStart(buffer: string): boolean {
+    const target = '<think>';
+    const targetAlt = '<think '; // Support <think> with attributes
+    return target.startsWith(buffer) || targetAlt.startsWith(buffer);
+  }
+
+  /**
+   * Check if the partial tag buffer could be the end of a think tag
+   */
+  private isPossibleThinkTagEnd(buffer: string): boolean {
+    const target = '</think>';
+    const targetAlt = '</think '; // Support </think> with attributes
+    return target.startsWith(buffer) || targetAlt.startsWith(buffer);
+  }
+
+  /**
+   * Check if buffer is a complete think opening tag
+   */
+  private isCompleteThinkTagStart(buffer: string): boolean {
+    return buffer === '<think>' || /^<think\s/.test(buffer);
+  }
+
+  /**
+   * Check if buffer is a complete think closing tag
+   */
+  private isCompleteThinkTagEnd(buffer: string): boolean {
+    return /^<\/think[^>]*>$/.test(buffer);
+  }
+
+  /**
    * Extract clean JSON content from potentially malformed tool call content
+   * Also handles removing <think> tags and extracting from JSON arrays
    */
   private extractCleanJsonContent(content: string): string {
-    const trimmed = content.trim();
-    
+    let trimmed = content.trim();
+
+    // Remove <think> and </think> tags if present
+    trimmed = trimmed.replace(/<\/?think[^>]*>/gi, '');
+    trimmed = trimmed.trim();
+
     // Extract first complete JSON object using regex
     const jsonMatch = trimmed.match(/^\s*\{[\s\S]*?\}(?=\s*(?:\}|\n|$))/);
     if (jsonMatch) {
@@ -555,7 +598,7 @@ ${JSON.stringify(schema)}
         // Fall through to original content
       }
     }
-    
+
     return trimmed;
   }
 
@@ -599,12 +642,30 @@ ${JSON.stringify(schema)}
 
   /**
    * Finalize the stream processing and extract the final response
-   * Enhanced to handle stop_sequence truncation properly
+   * Enhanced to handle stop_sequence truncation properly and <think> tags
    */
   finalizeStreamProcessing(state: ExtendedStreamProcessingState): ParsedModelResponse {
     const extendedState = state;
     let finalContent = extendedState.normalContentBuffer;
     let finalToolCalls = [...extendedState.toolCalls];
+    let finalReasoningContent = extendedState.reasoningBuffer;
+
+    // Use contentBuffer if available, otherwise fall back to normalContentBuffer
+    // This handles cases where content went through different processing paths
+    const fullContent = extendedState.contentBuffer || extendedState.normalContentBuffer;
+
+    // Extract reasoning content from <think> tags if present
+    const thinkTagMatch = fullContent.match(/<think[^>]*>([\s\S]*?)<\/think[^>]*>/i);
+    if (thinkTagMatch && thinkTagMatch[1]) {
+      const thinkContent = thinkTagMatch[1].trim();
+      if (thinkContent) {
+        // Append to existing reasoning content if any
+        finalReasoningContent = finalReasoningContent
+          ? `${finalReasoningContent}\n${thinkContent}`
+          : thinkContent;
+        this.logger.debug('Extracted reasoning content from <think> tag');
+      }
+    }
 
     // Check if we have an incomplete tool call due to stop_sequence
     // This handles cases where stop_sequence truncated the tool call
@@ -657,10 +718,10 @@ ${JSON.stringify(schema)}
     }
 
     // Only perform additional extraction if no tool calls were found during streaming and recovery
-    if (finalToolCalls.length === 0 && this.hasCompletedToolCall(extendedState.contentBuffer)) {
-      const { cleanedContent, extractedToolCalls } = this.extractToolCalls(
-        extendedState.contentBuffer,
-      );
+    // Check both contentBuffer and normalContentBuffer
+    if (finalToolCalls.length === 0 && this.hasCompletedToolCall(fullContent)) {
+      this.logger.debug('Attempting to extract tool calls from content');
+      const { cleanedContent, extractedToolCalls } = this.extractToolCalls(fullContent);
       finalContent = cleanedContent;
       finalToolCalls = extractedToolCalls;
     }
@@ -674,8 +735,8 @@ ${JSON.stringify(schema)}
 
     return {
       content: finalContent,
-      rawContent: extendedState.contentBuffer,
-      reasoningContent: extendedState.reasoningBuffer || undefined,
+      rawContent: fullContent,
+      reasoningContent: finalReasoningContent || undefined,
       toolCalls: finalToolCalls.length > 0 ? finalToolCalls : undefined,
       finishReason,
     };
@@ -683,24 +744,42 @@ ${JSON.stringify(schema)}
 
   /**
    * Check if content contains a complete tool call (fallback for finalization)
+   * Supports both <tool_call> format and JSON array format
    */
   private hasCompletedToolCall(content: string): boolean {
-    return content.includes('<tool_call>') && content.includes('</tool_call>');
+    // Check for standard <tool_call> format
+    if (content.includes('<tool_call>') && content.includes('</tool_call>')) {
+      return true;
+    }
+
+    // Check for JSON array format (possibly after <think> tags)
+    // Remove complete <think>...</think> pairs
+    let contentWithoutThink = content.replace(/<think[^>]*>[\s\S]*?<\/think[^>]*>/gi, '').trim();
+
+    // Also remove orphan closing </think> tags (in case <think> was in a previous chunk)
+    contentWithoutThink = contentWithoutThink.replace(/<\/think[^>]*>/gi, '').trim();
+
+    // Check if there's a JSON array or object with "name" field
+    const hasJsonArray = /\[\s*\{\s*"name"\s*:/.test(contentWithoutThink);
+    const hasJsonObject = /\{\s*"name"\s*:/.test(contentWithoutThink);
+
+    return hasJsonArray || hasJsonObject;
   }
 
   /**
    * Extract tool calls from content (fallback for finalization)
+   * Supports both <tool_call> format and JSON array format after <think> tags
    */
   private extractToolCalls(content: string): {
     cleanedContent: string;
     extractedToolCalls: ChatCompletionMessageToolCall[];
   } {
     const toolCalls: ChatCompletionMessageToolCall[] = [];
+    let cleanedContent = content;
 
-    // Match <tool_call>...</tool_call> blocks
+    // First, try to extract tool calls from <tool_call>...</tool_call> blocks
     const toolCallRegex = /<tool_call>([\s\S]*?)<\/tool_call>/g;
     let match;
-    let cleanedContent = content;
 
     while ((match = toolCallRegex.exec(content)) !== null) {
       const toolCallContent = this.extractCleanJsonContent(match[1]);
@@ -725,8 +804,73 @@ ${JSON.stringify(schema)}
       }
     }
 
-    // Remove all tool call blocks from content
-    cleanedContent = content.replace(/<tool_call>[\s\S]*?<\/tool_call>/g, '').trim();
+    // If no <tool_call> blocks found, try to extract from JSON array format
+    // This handles format like: <think>...</think>[{"name":"tool_name","parameters":{...}}]
+    if (toolCalls.length === 0) {
+      // Remove complete <think>...</think> pairs
+      let contentWithoutThink = content.replace(/<think[^>]*>[\s\S]*?<\/think[^>]*>/gi, '').trim();
+
+      // Also remove orphan closing </think> tags (in case <think> was in a previous chunk)
+      contentWithoutThink = contentWithoutThink.replace(/<\/think[^>]*>/gi, '').trim();
+
+      // Try to find JSON array pattern: [{...}] or just {...}
+      const jsonArrayMatch = contentWithoutThink.match(/\[\s*\{[\s\S]*?\}\s*\]/);
+      const jsonObjectMatch = contentWithoutThink.match(/\{[\s\S]*?\}/);
+
+      if (jsonArrayMatch) {
+        try {
+          const toolCallsArray = JSON.parse(jsonArrayMatch[0]);
+          if (Array.isArray(toolCallsArray)) {
+            for (const toolCallData of toolCallsArray) {
+              if (toolCallData && toolCallData.name) {
+                const toolCallId = this.generateToolCallId();
+                toolCalls.push({
+                  id: toolCallId,
+                  type: 'function',
+                  function: {
+                    name: toolCallData.name,
+                    arguments: JSON.stringify(toolCallData.parameters || toolCallData.args || {}),
+                  },
+                });
+                this.logger.debug(
+                  `Found tool call from JSON array: ${toolCallData.name} with ID: ${toolCallId}`,
+                );
+              }
+            }
+          }
+        } catch (error) {
+          this.logger.error('Failed to parse JSON array tool calls:', error);
+        }
+      } else if (jsonObjectMatch) {
+        // Try single JSON object format
+        try {
+          const toolCallData = JSON.parse(jsonObjectMatch[0]);
+          if (toolCallData && toolCallData.name) {
+            const toolCallId = this.generateToolCallId();
+            toolCalls.push({
+              id: toolCallId,
+              type: 'function',
+              function: {
+                name: toolCallData.name,
+                arguments: JSON.stringify(toolCallData.parameters || toolCallData.args || {}),
+              },
+            });
+            this.logger.debug(
+              `Found tool call from JSON object: ${toolCallData.name} with ID: ${toolCallId}`,
+            );
+          }
+        } catch (error) {
+          this.logger.error('Failed to parse JSON object tool call:', error);
+        }
+      }
+    }
+
+    // Remove all tool call blocks and think tags from content
+    cleanedContent = content.replace(/<tool_call>[\s\S]*?<\/tool_call>/g, '');
+    cleanedContent = cleanedContent.replace(/<think[^>]*>[\s\S]*?<\/think[^>]*>/gi, '');
+    cleanedContent = cleanedContent.replace(/<\/think[^>]*>/gi, ''); // Remove orphan closing tags
+    cleanedContent = cleanedContent.replace(/\[\s*\{[\s\S]*?\}\s*\]/g, ''); // Remove JSON array
+    cleanedContent = cleanedContent.trim();
 
     return { cleanedContent, extractedToolCalls: toolCalls };
   }

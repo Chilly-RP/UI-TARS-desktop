@@ -318,6 +318,8 @@ describe('PromptEngineeringToolCallEngine', () => {
           toolNameExtracted: false,
           parameterBracketDepth: 0,
           parameterContentStarted: false,
+          insideThinkTag: false,
+          thinkTagBuffer: '',
         });
       });
     });
@@ -1027,6 +1029,120 @@ describe('PromptEngineeringToolCallEngine', () => {
       expect(state.toolCalls[0].function.name).toBe('tool1');
       expect(state.toolCalls[1].function.name).toBe('tool2');
       expect(toolCallUpdateCount).toBe(14);
+    });
+  });
+
+  describe('support for <think> tags and JSON array format', () => {
+    it('should extract reasoning content from <think> tags', () => {
+      const state = engine.initStreamProcessingState();
+      const contentWithThink =
+        '<think>This is my reasoning process. I need to use browser_navigate tool.</think>[{"name":"browser_navigate","parameters":{"url":"https://example.com"}}]';
+
+      // Simulate streaming
+      state.contentBuffer = contentWithThink;
+
+      const result = engine.finalizeStreamProcessing(state);
+
+      expect(result.reasoningContent).toBe(
+        'This is my reasoning process. I need to use browser_navigate tool.',
+      );
+      expect(result.toolCalls).toHaveLength(1);
+      expect(result.toolCalls?.[0].function.name).toBe('browser_navigate');
+      expect(JSON.parse(result.toolCalls?.[0].function.arguments || '{}')).toEqual({
+        url: 'https://example.com',
+      });
+      expect(result.content).toBe(''); // Content should be cleaned
+    });
+
+    it('should parse JSON array format tool calls', () => {
+      const state = engine.initStreamProcessingState();
+      const jsonArrayContent =
+        '[{"name":"web_search","parameters":{"query":"test query","count":5}}]';
+
+      state.contentBuffer = jsonArrayContent;
+
+      const result = engine.finalizeStreamProcessing(state);
+
+      expect(result.toolCalls).toHaveLength(1);
+      expect(result.toolCalls?.[0].function.name).toBe('web_search');
+      expect(JSON.parse(result.toolCalls?.[0].function.arguments || '{}')).toEqual({
+        query: 'test query',
+        count: 5,
+      });
+    });
+
+    it('should handle <think> tags combined with JSON array format', () => {
+      const state = engine.initStreamProcessingState();
+      const combinedContent =
+        '<think>现在需要获取杭州一个月天气的详细数据，从搜索结果看，"杭州2025年12月历史天气"这个链接可能包含具体的每日天气记录，适合作为信息来源。所以调用browser_navigate工具导航到该URL，获取页面内容后进一步分析。</think>[{"name":"browser_navigate","parameters":{"url":"https://tianqi.2345.com/wea_history/58457.htm"}}]';
+
+      state.contentBuffer = combinedContent;
+
+      const result = engine.finalizeStreamProcessing(state);
+
+      expect(result.reasoningContent).toContain('现在需要获取杭州一个月天气的详细数据');
+      expect(result.toolCalls).toHaveLength(1);
+      expect(result.toolCalls?.[0].function.name).toBe('browser_navigate');
+      expect(JSON.parse(result.toolCalls?.[0].function.arguments || '{}')).toEqual({
+        url: 'https://tianqi.2345.com/wea_history/58457.htm',
+      });
+      expect(result.content).toBe(''); // All special content removed
+    });
+
+    it('should handle multiple tool calls in JSON array', () => {
+      const state = engine.initStreamProcessingState();
+      const multipleToolsContent =
+        '[{"name":"tool1","parameters":{"a":1}},{"name":"tool2","parameters":{"b":2}}]';
+
+      state.contentBuffer = multipleToolsContent;
+
+      const result = engine.finalizeStreamProcessing(state);
+
+      expect(result.toolCalls).toHaveLength(2);
+      expect(result.toolCalls?.[0].function.name).toBe('tool1');
+      expect(result.toolCalls?.[1].function.name).toBe('tool2');
+    });
+
+    it('should support both "parameters" and "args" field names', () => {
+      const state = engine.initStreamProcessingState();
+      const contentWithArgs = '[{"name":"testTool","args":{"param":"value"}}]';
+
+      state.contentBuffer = contentWithArgs;
+
+      const result = engine.finalizeStreamProcessing(state);
+
+      expect(result.toolCalls).toHaveLength(1);
+      expect(result.toolCalls?.[0].function.name).toBe('testTool');
+      expect(JSON.parse(result.toolCalls?.[0].function.arguments || '{}')).toEqual({
+        param: 'value',
+      });
+    });
+
+    it('should handle <think> tags with attributes', () => {
+      const state = engine.initStreamProcessingState();
+      const contentWithAttributes =
+        '<think type="reasoning">My thought process</think>[{"name":"tool1","parameters":{}}]';
+
+      state.contentBuffer = contentWithAttributes;
+
+      const result = engine.finalizeStreamProcessing(state);
+
+      expect(result.reasoningContent).toBe('My thought process');
+      expect(result.toolCalls).toHaveLength(1);
+    });
+
+    it('should prioritize standard <tool_call> format over JSON array', () => {
+      const state = engine.initStreamProcessingState();
+      const mixedContent =
+        '<tool_call>{"name":"standardTool","parameters":{}}</tool_call>[{"name":"jsonArrayTool","parameters":{}}]';
+
+      state.contentBuffer = mixedContent;
+
+      const result = engine.finalizeStreamProcessing(state);
+
+      // Should extract from <tool_call> format first
+      expect(result.toolCalls).toHaveLength(1);
+      expect(result.toolCalls?.[0].function.name).toBe('standardTool');
     });
   });
 });

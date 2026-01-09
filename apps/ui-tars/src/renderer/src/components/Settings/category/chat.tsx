@@ -43,7 +43,7 @@ export function ChatSettings() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       language: undefined,
-      maxLoopCount: 0,
+      maxLoopCount: 25,
       loopIntervalInMs: 1000,
       resolutionScaleFactor: 0.7,
       screenshotJpegQuality: 75,
@@ -84,7 +84,15 @@ export function ChatSettings() {
     if (!Object.keys(settings).length) {
       return;
     }
-    if (newLanguage === undefined && newCount === 0 && newInterval === 1000) {
+    // Check if all values are at their initial defaults (before settings are loaded)
+    const isAtInitialDefaults =
+      newLanguage === undefined &&
+      newCount === 25 &&
+      newInterval === 1000 &&
+      newResolutionScale === 0.7 &&
+      newJpegQuality === 75 &&
+      newPngQuality === 60;
+    if (isAtInitialDefaults) {
       return;
     }
 
@@ -189,7 +197,6 @@ export function ChatSettings() {
                     <Input
                       type="number"
                       {...field}
-                      value={field.value === 0 ? '' : field.value}
                       onChange={(e) => field.onChange(Number(e.target.value))}
                     />
                   </FormControl>
@@ -210,7 +217,6 @@ export function ChatSettings() {
                     type="number"
                     placeholder="Enter a number between 0-3000"
                     {...field}
-                    value={field.value === 0 ? '' : field.value}
                     onChange={(e) => field.onChange(Number(e.target.value))}
                   />
                 </FormControl>
