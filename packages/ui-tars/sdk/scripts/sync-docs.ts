@@ -10,6 +10,14 @@ const docFilePath = path.join(packageDirPath, '../../../docs/sdk.md');
 
 async function syncDocs() {
   try {
+    // Check if the source file exists before reading
+    try {
+      await fs.access(docFilePath);
+    } catch {
+      console.log('⚠️ 文档源文件 docs/sdk.md 不存在，跳过同步');
+      return;
+    }
+
     const content = await fs.readFile(docFilePath, 'utf-8');
 
     await fs.writeFile(path.join(packageDirPath, 'README.md'), content);

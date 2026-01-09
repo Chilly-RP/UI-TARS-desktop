@@ -67,6 +67,24 @@ export interface ScreenshotResult {
 }
 
 export type Coords = [number, number] | [];
+
+// Bash action inputs
+export interface BashActionInputs {
+  command: string; // Command to execute
+  args?: string[]; // Command arguments
+  timeout?: number; // Timeout in milliseconds, default 30000
+}
+
+// File operation types
+export type FileOperation = 'read' | 'write' | 'append' | 'list' | 'delete';
+
+// File action inputs
+export interface FileActionInputs {
+  operation: FileOperation; // Operation type
+  path: string; // File path relative to sandbox
+  content?: string; // Content for write/append operations
+}
+
 export type ActionInputs = Partial<{
   content: string;
   start_box: string;
@@ -76,6 +94,9 @@ export type ActionInputs = Partial<{
   direction: string;
   start_coords: Coords;
   end_coords: Coords;
+  // Tool inputs
+  bash: BashActionInputs;
+  file: FileActionInputs;
 }>;
 
 export interface PredictionParsed {

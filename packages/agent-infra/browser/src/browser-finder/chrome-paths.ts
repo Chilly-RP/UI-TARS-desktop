@@ -71,7 +71,9 @@ function getChromeOnDarwin(
     | 'Google Chrome Canary',
 ): string | null {
   const suffix = `/Applications/${name}.app/Contents/MacOS/${name}`;
-  const prefixes = ['', process.env.HOME].filter((item) => item !== undefined);
+  const prefixes = ['', process.env.HOME].filter(
+    (item): item is string => item !== undefined,
+  );
 
   for (const prefix of prefixes) {
     const chromePath = join(prefix, suffix);

@@ -46,7 +46,9 @@ function getFireFoxOnDarwin(
   name: 'Firefox' | 'Firefox Developer Edition' | 'Firefox Nightly',
 ): string | null {
   const suffix = `/Applications/${name}.app/Contents/MacOS/firefox`;
-  const prefixes = ['', process.env.HOME].filter((item) => item !== undefined);
+  const prefixes = ['', process.env.HOME].filter(
+    (item): item is string => item !== undefined,
+  );
 
   for (const prefix of prefixes) {
     const firefoxPath = join(prefix, suffix);

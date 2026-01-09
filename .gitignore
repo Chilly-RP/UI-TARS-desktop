@@ -6,6 +6,7 @@ out
 *.log*
 .eslintcache
 .env
+*.tsbuildinfo
 test-results/
 coverage/
 .turbo/

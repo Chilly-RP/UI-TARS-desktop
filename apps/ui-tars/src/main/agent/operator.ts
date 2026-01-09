@@ -7,6 +7,7 @@ import {
   type ScreenshotOutput,
   type ExecuteParams,
   type ExecuteOutput,
+  StatusEnum,
 } from '@ui-tars/sdk/core';
 import { NutJSOperator } from '@ui-tars/operator-nut-js';
 import { clipboard } from 'electron';
@@ -17,6 +18,23 @@ import { logger } from '@main/logger';
 import { sleep } from '@ui-tars/shared/utils';
 import { getScreenSize } from '@main/utils/screen';
 import { SettingStore } from '@main/store/setting';
+import { BashExecutor, FileExecutor } from '@main/tools';
+
+// Local type definitions for tool inputs
+// These mirror the types in @ui-tars/shared/types/agent.ts
+interface BashActionInputs {
+  command: string;
+  args?: string[];
+  timeout?: number;
+}
+
+type FileOperation = 'read' | 'write' | 'append' | 'list' | 'delete';
+
+interface FileActionInputs {
+  operation: FileOperation;
+  path: string;
+  content?: string;
+}
 
 export class NutJSElectronOperator extends NutJSOperator {
   static MANUAL = {
@@ -31,8 +49,29 @@ export class NutJSElectronOperator extends NutJSOperator {
       `wait() #Sleep for 5s and take a screenshot to check for any changes.`,
       `finished()`,
       `call_user() # Submit the task and call the user when the task is unsolvable, or when you need the user's help.`,
+      // Extended tools for Skills support
+      `bash(command='<cmd>', args='[arg1, arg2]') # Execute whitelisted bash commands (cat, ls, grep, etc). No file modifications allowed.`,
+      `file(operation='read|write|append|list|delete', path='<path>', content='<text>') # File operations in sandbox (~/Documents/ui-tars-workspace).`,
     ],
   };
+
+  // Tool executors for extended capabilities
+  private bashExecutor: BashExecutor | null = null;
+  private fileExecutor: FileExecutor | null = null;
+
+  private getBashExecutor(): BashExecutor {
+    if (!this.bashExecutor) {
+      this.bashExecutor = new BashExecutor();
+    }
+    return this.bashExecutor;
+  }
+
+  private getFileExecutor(): FileExecutor {
+    if (!this.fileExecutor) {
+      this.fileExecutor = new FileExecutor();
+    }
+    return this.fileExecutor;
+  }
 
   // Screenshot compression parameters - now read from settings
   private get screenshotJpegQuality(): number {
@@ -129,6 +168,15 @@ export class NutJSElectronOperator extends NutJSOperator {
   async execute(params: ExecuteParams): Promise<ExecuteOutput> {
     const { action_type, action_inputs } = params.parsedPrediction;
 
+    // Handle extended tool actions
+    if (action_type === 'bash') {
+      return await this.executeBash(action_inputs);
+    }
+
+    if (action_type === 'file') {
+      return await this.executeFile(action_inputs);
+    }
+
     // Restore coordinates to original resolution
     // Since screenshot was scaled down by resolutionScaleFactor,
     // we need to scale the screen dimensions back up for correct coordinate calculation
@@ -162,5 +210,71 @@ export class NutJSElectronOperator extends NutJSOperator {
     } else {
       return await super.execute(restoredParams);
     }
+  }
+
+  /**
+   * Execute bash command action
+   */
+  private async executeBash(
+    actionInputs: Record<string, unknown>,
+  ): Promise<ExecuteOutput> {
+    const bashInputs = actionInputs.bash as BashActionInputs | undefined;
+
+    if (!bashInputs || !bashInputs.command) {
+      logger.error('[NutJSElectronOperator] Invalid bash action inputs');
+      return { status: StatusEnum.ERROR };
+    }
+
+    logger.info(
+      '[NutJSElectronOperator] Executing bash command:',
+      bashInputs.command,
+    );
+
+    const result = await this.getBashExecutor().execute(bashInputs);
+
+    if (!result.success) {
+      logger.error(
+        '[NutJSElectronOperator] Bash execution failed:',
+        result.error,
+      );
+      return { status: StatusEnum.ERROR };
+    }
+
+    logger.info('[NutJSElectronOperator] Bash execution succeeded');
+    return { status: StatusEnum.RUNNING };
+  }
+
+  /**
+   * Execute file operation action
+   */
+  private async executeFile(
+    actionInputs: Record<string, unknown>,
+  ): Promise<ExecuteOutput> {
+    const fileInputs = actionInputs.file as FileActionInputs | undefined;
+
+    if (!fileInputs || !fileInputs.operation || !fileInputs.path) {
+      logger.error('[NutJSElectronOperator] Invalid file action inputs');
+      return { status: StatusEnum.ERROR };
+    }
+
+    logger.info(
+      '[NutJSElectronOperator] Executing file operation:',
+      fileInputs.operation,
+      'on',
+      fileInputs.path,
+    );
+
+    const result = await this.getFileExecutor().execute(fileInputs);
+
+    if (!result.success) {
+      logger.error(
+        '[NutJSElectronOperator] File operation failed:',
+        result.error,
+      );
+      return { status: StatusEnum.ERROR };
+    }
+
+    logger.info('[NutJSElectronOperator] File operation succeeded');
+    return { status: StatusEnum.RUNNING };
   }
 }

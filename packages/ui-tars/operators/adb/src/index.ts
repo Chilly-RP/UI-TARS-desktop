@@ -141,7 +141,7 @@ export class AdbOperator extends Operator {
               false;
           }
           const content = action_inputs.content?.trim();
-          const isChinese = (content || '').split('').some((char) => {
+          const isChinese = (content || '').split('').some((char: string) => {
             const code = char.charCodeAt(0);
             return code >= 0x4e00 && code <= 0x9fff;
           });

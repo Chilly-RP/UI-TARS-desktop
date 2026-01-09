@@ -42,8 +42,7 @@ export interface UITarsModelConfig extends OpenAIChatCompletionCreateParams {
   useResponsesApi?: boolean;
 }
 
-export interface ThinkingVisionProModelConfig
-  extends ChatCompletionCreateParamsNonStreaming {
+export interface ThinkingVisionProModelConfig extends ChatCompletionCreateParamsNonStreaming {
   thinking?: {
     type: 'enabled' | 'disabled';
   };
@@ -144,9 +143,14 @@ export class UITarsModel extends Model {
     const startTime = Date.now();
 
     if (this.modelConfig.useResponsesApi) {
-      const lastAssistantIndex = messages.findLastIndex(
-        (c) => c.role === 'assistant',
-      );
+      // Find last index of assistant message (compatible with older ES versions)
+      let lastAssistantIndex = -1;
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].role === 'assistant') {
+          lastAssistantIndex = i;
+          break;
+        }
+      }
       logger.info('[ResponseAPI] lastAssistantIndex: ', lastAssistantIndex);
       // incremental messages
       const inputs = convertToResponseApiInput(

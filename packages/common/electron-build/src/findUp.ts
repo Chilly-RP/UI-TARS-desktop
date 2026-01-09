@@ -55,12 +55,19 @@ export async function findUp(
 
 export function findUpSync(
   name: string,
-  // @ts-ignore
-  { cwd = process.cwd(), type = 'file', stopAt } = {},
+  {
+    cwd = process.cwd(),
+    type = 'file',
+    stopAt,
+  }: {
+    cwd?: string | URL;
+    type?: string;
+    stopAt?: string | URL;
+  } = {},
 ) {
   let directory = path.resolve(toPath(cwd) ?? '');
   const { root } = path.parse(directory);
-  stopAt = path.resolve(directory, toPath(stopAt) ?? root);
+  stopAt = path.resolve(directory, toPath(stopAt ?? root));
   const isAbsoluteName = path.isAbsolute(name);
 
   while (directory) {

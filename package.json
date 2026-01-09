@@ -20,7 +20,10 @@
     "prepare": "husky"
   },
   "pnpm": {
-    "patchedDependencies": {}
+    "patchedDependencies": {},
+    "overrides": {
+      "typescript": "5.9.3"
+    }
   },
   "devDependencies": {
     "@common/configs": "workspace:*",
