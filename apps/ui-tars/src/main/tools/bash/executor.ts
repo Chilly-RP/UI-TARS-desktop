@@ -27,10 +27,67 @@ export class BashExecutor {
   }
 
   /**
+   * Parse args from various formats that LLM might return
+   */
+  private parseArgs(args: unknown): string[] {
+    if (!args) {
+      return [];
+    }
+
+    // Already an array
+    if (Array.isArray(args)) {
+      return args.map((arg) => String(arg));
+    }
+
+    // String that looks like an array: "[]", "[arg1, arg2]", "[-la, /path]"
+    if (typeof args === 'string') {
+      const trimmed = args.trim();
+
+      // Empty array string
+      if (trimmed === '[]' || trimmed === '') {
+        return [];
+      }
+
+      // Parse array-like string: "[arg1, arg2]" or "[-la, /path]"
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        const inner = trimmed.slice(1, -1).trim();
+        if (inner === '') {
+          return [];
+        }
+        // Split by comma, trim each part, remove quotes
+        return inner.split(',').map((s) =>
+          s
+            .trim()
+            .replace(/^['"]|['"]$/g, '')
+            .trim(),
+        );
+      }
+
+      // Try JSON parse
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.map((arg) => String(arg));
+        }
+      } catch {
+        // Not valid JSON, treat as single argument or space-separated
+      }
+
+      // Single argument or space-separated (but be careful with paths containing spaces)
+      return [trimmed];
+    }
+
+    return [];
+  }
+
+  /**
    * Execute a bash command
    */
   async execute(inputs: BashActionInputs): Promise<BashExecutionResult> {
-    const { command, args = [], timeout = DEFAULT_TIMEOUT } = inputs;
+    const { command, timeout = DEFAULT_TIMEOUT } = inputs;
+
+    // Parse args - handle string, array, or undefined
+    const args = this.parseArgs(inputs.args);
 
     // 1. Build full command string for validation
     const fullCommand =

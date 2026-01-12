@@ -50,8 +50,8 @@ export class NutJSElectronOperator extends NutJSOperator {
       `finished()`,
       `call_user() # Submit the task and call the user when the task is unsolvable, or when you need the user's help.`,
       // Extended tools for Skills support
-      `bash(command='<cmd>', args='[arg1, arg2]') # Execute whitelisted bash commands (cat, ls, grep, etc). No file modifications allowed.`,
-      `file(operation='read|write|append|list|delete', path='<path>', content='<text>') # File operations in sandbox (~/Documents/ui-tars-workspace).`,
+      `bash(command='<cmd>') # Execute whitelisted bash commands. Examples: bash(command='ls'), bash(command='ls -la'), bash(command='cat file.txt'), bash(command='grep pattern file'). Allowed: cat, ls, grep, head, tail, find, pwd, date, whoami. Forbidden: rm, mv, cp, chmod, sudo.`,
+      `file(operation='<op>', path='<path>', content='<text>') # File operations in sandbox (~/Documents/ui-tars-workspace). Operations: read, write, append, list, delete. Examples: file(operation='list', path='.'), file(operation='read', path='notes.txt'), file(operation='write', path='output.txt', content='hello').`,
     ],
   };
 
@@ -218,7 +218,20 @@ export class NutJSElectronOperator extends NutJSOperator {
   private async executeBash(
     actionInputs: Record<string, unknown>,
   ): Promise<ExecuteOutput> {
-    const bashInputs = actionInputs.bash as BashActionInputs | undefined;
+    // Support both nested format (actionInputs.bash) and flat format (actionInputs.command)
+    let bashInputs: BashActionInputs | undefined;
+
+    if (actionInputs.bash) {
+      // Nested format: { bash: { command: 'ls', args: [...] } }
+      bashInputs = actionInputs.bash as BashActionInputs;
+    } else if (actionInputs.command) {
+      // Flat format: { command: 'ls', args: [...] }
+      bashInputs = {
+        command: actionInputs.command as string,
+        args: actionInputs.args as string[] | undefined,
+        timeout: actionInputs.timeout as number | undefined,
+      };
+    }
 
     if (!bashInputs || !bashInputs.command) {
       logger.error('[NutJSElectronOperator] Invalid bash action inputs');
@@ -250,7 +263,20 @@ export class NutJSElectronOperator extends NutJSOperator {
   private async executeFile(
     actionInputs: Record<string, unknown>,
   ): Promise<ExecuteOutput> {
-    const fileInputs = actionInputs.file as FileActionInputs | undefined;
+    // Support both nested format (actionInputs.file) and flat format (actionInputs.operation, actionInputs.path)
+    let fileInputs: FileActionInputs | undefined;
+
+    if (actionInputs.file) {
+      // Nested format: { file: { operation: 'read', path: 'file.txt' } }
+      fileInputs = actionInputs.file as FileActionInputs;
+    } else if (actionInputs.operation && actionInputs.path) {
+      // Flat format: { operation: 'read', path: 'file.txt', content: '...' }
+      fileInputs = {
+        operation: actionInputs.operation as FileActionInputs['operation'],
+        path: actionInputs.path as string,
+        content: actionInputs.content as string | undefined,
+      };
+    }
 
     if (!fileInputs || !fileInputs.operation || !fileInputs.path) {
       logger.error('[NutJSElectronOperator] Invalid file action inputs');
