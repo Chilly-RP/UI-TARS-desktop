@@ -29,7 +29,11 @@ export interface ExecuteParams {
   factors: Factors;
 }
 
-export type ExecuteOutput = { status: StatusEnum } & (object | void);
+export interface ExecuteOutput {
+  status: StatusEnum;
+  /** Tool execution output (e.g., bash command output, file content) to be added to conversation context */
+  toolOutput?: string;
+}
 
 export interface ScreenshotOutput extends ScreenshotResult {}
 

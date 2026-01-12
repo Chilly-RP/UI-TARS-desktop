@@ -207,6 +207,7 @@ export class NutJSElectronOperator extends NutJSOperator {
       await keyboard.releaseKey(Key.LeftControl, Key.V);
       await sleep(50);
       clipboard.writeText(originalClipboard);
+      return { status: StatusEnum.RUNNING };
     } else {
       return await super.execute(restoredParams);
     }
@@ -235,7 +236,10 @@ export class NutJSElectronOperator extends NutJSOperator {
 
     if (!bashInputs || !bashInputs.command) {
       logger.error('[NutJSElectronOperator] Invalid bash action inputs');
-      return { status: StatusEnum.ERROR };
+      return {
+        status: StatusEnum.ERROR,
+        toolOutput: 'Invalid bash action inputs: command is required',
+      };
     }
 
     logger.info(
@@ -250,11 +254,20 @@ export class NutJSElectronOperator extends NutJSOperator {
         '[NutJSElectronOperator] Bash execution failed:',
         result.error,
       );
-      return { status: StatusEnum.ERROR };
+      return {
+        status: StatusEnum.ERROR,
+        toolOutput: `Bash command failed: ${result.error || 'Unknown error'}\n${result.stderr || ''}`,
+      };
     }
 
-    logger.info('[NutJSElectronOperator] Bash execution succeeded');
-    return { status: StatusEnum.RUNNING };
+    logger.info(
+      '[NutJSElectronOperator] Bash execution succeeded, output:',
+      result.output,
+    );
+    return {
+      status: StatusEnum.RUNNING,
+      toolOutput: result.output || result.stdout || '(no output)',
+    };
   }
 
   /**
@@ -280,7 +293,11 @@ export class NutJSElectronOperator extends NutJSOperator {
 
     if (!fileInputs || !fileInputs.operation || !fileInputs.path) {
       logger.error('[NutJSElectronOperator] Invalid file action inputs');
-      return { status: StatusEnum.ERROR };
+      return {
+        status: StatusEnum.ERROR,
+        toolOutput:
+          'Invalid file action inputs: operation and path are required',
+      };
     }
 
     logger.info(
@@ -297,10 +314,19 @@ export class NutJSElectronOperator extends NutJSOperator {
         '[NutJSElectronOperator] File operation failed:',
         result.error,
       );
-      return { status: StatusEnum.ERROR };
+      return {
+        status: StatusEnum.ERROR,
+        toolOutput: `File operation failed: ${result.error || 'Unknown error'}`,
+      };
     }
 
-    logger.info('[NutJSElectronOperator] File operation succeeded');
-    return { status: StatusEnum.RUNNING };
+    logger.info(
+      '[NutJSElectronOperator] File operation succeeded, output:',
+      result.output,
+    );
+    return {
+      status: StatusEnum.RUNNING,
+      toolOutput: result.output || '(operation completed)',
+    };
   }
 }

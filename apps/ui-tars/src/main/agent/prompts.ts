@@ -113,7 +113,7 @@ type(content='xxx') # Use escape characters \\', \\", and \n in content part to 
 scroll(start_box='[x1, y1, x2, y2]', direction='down or up or right or left')
 wait() #Sleep for 5s and take a screenshot to check for any changes.
 bash(command='<cmd>', args='[arg1, arg2]') # Execute read-only bash commands (cat, ls, grep, etc). Args optional. No file modifications allowed.
-file(operation='read|write|append|list|delete', path='<path>', content='<text>') # File operations in sandbox (~/Documents/ui-tars-workspace). Path required (filename or relative path). Content required for write/append only.
+file(operation='read|write|append|list|delete', path='<path>', content='<text>') # Path required (filename or relative path). Content required for write/append only.
 finished(content='xxx') # Use escape characters \\', \\", and \n in content part to ensure we can parse the content in normal python string format.
 
 

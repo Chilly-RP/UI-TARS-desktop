@@ -11,6 +11,7 @@ import {
   ErrorStatusEnum,
   GUIAgentError,
   Message,
+  Conversation,
 } from '@ui-tars/shared/types';
 import { IMAGE_PLACEHOLDER, MAX_LOOP_COUNT } from '@ui-tars/shared/constants';
 import { sleep } from '@ui-tars/shared/utils';
@@ -391,7 +392,6 @@ export class GUIAgent<T extends Operator> extends BaseGUIAgent<
               '[GUIAgent] screenHeight:',
               height,
             );
-            // TODO: pass executeOutput to onData
             const executeOutput = await asyncRetry(
               () =>
                 operator.execute({
@@ -420,6 +420,31 @@ export class GUIAgent<T extends Operator> extends BaseGUIAgent<
 
             if (executeOutput && executeOutput?.status) {
               data.status = executeOutput.status;
+            }
+
+            // Add tool output to conversations if available
+            if (executeOutput?.toolOutput) {
+              const toolEnd = Date.now();
+              const toolMessage: Conversation = {
+                from: 'human',
+                value: `[Tool Output] ${actionType}: ${executeOutput.toolOutput}`,
+                timing: {
+                  start: toolEnd,
+                  end: toolEnd,
+                  cost: 0,
+                },
+              };
+              data.conversations.push(toolMessage);
+              logger.info(
+                '[GUIAgent] Added tool output to conversations:',
+                executeOutput.toolOutput,
+              );
+              await onData?.({
+                data: {
+                  ...data,
+                  conversations: data.conversations.slice(-1),
+                },
+              });
             }
           }
 
