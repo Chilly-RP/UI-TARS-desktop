@@ -26,7 +26,7 @@ const FileViewer: React.FC<FileViewerProps> = ({
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
         <FileText className="w-16 h-16 text-gray-200" />
-        <p className="text-sm">Select a file to preview</p>
+        <p className="text-sm">选择文件以预览</p>
       </div>
     );
   }
@@ -35,7 +35,7 @@ const FileViewer: React.FC<FileViewerProps> = ({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
-        <div className="animate-pulse">Loading content...</div>
+        <div className="animate-pulse">加载中...</div>
       </div>
     );
   }
@@ -54,7 +54,7 @@ const FileViewer: React.FC<FileViewerProps> = ({
   if (content === null) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
-        <p className="text-sm">Unable to load file content</p>
+        <p className="text-sm">无法加载文件内容</p>
       </div>
     );
   }
@@ -62,30 +62,19 @@ const FileViewer: React.FC<FileViewerProps> = ({
   const isMarkdown = file.extension === '.md';
 
   return (
-    <div className="h-full flex flex-col">
-      {/* File header */}
-      <div className="flex-shrink-0 px-4 py-2 border-b bg-muted/30">
-        <h3 className="text-sm font-medium truncate" title={file.name}>
-          {file.name}
-        </h3>
-        <p className="text-xs text-muted-foreground">{file.path}</p>
+    <ScrollArea className="h-full">
+      <div className="p-4">
+        {isMarkdown ? (
+          <div className="prose prose-sm max-w-none dark:prose-invert">
+            <Markdown>{content}</Markdown>
+          </div>
+        ) : (
+          <pre className="text-sm font-mono whitespace-pre-wrap break-words text-gray-700 dark:text-gray-300 leading-relaxed">
+            {content}
+          </pre>
+        )}
       </div>
-
-      {/* Content area */}
-      <ScrollArea className="flex-1">
-        <div className="p-4">
-          {isMarkdown ? (
-            <div className="prose prose-sm max-w-none dark:prose-invert">
-              <Markdown>{content}</Markdown>
-            </div>
-          ) : (
-            <pre className="text-sm font-mono whitespace-pre-wrap break-words text-gray-700 dark:text-gray-300">
-              {content}
-            </pre>
-          )}
-        </div>
-      </ScrollArea>
-    </div>
+    </ScrollArea>
   );
 };
 

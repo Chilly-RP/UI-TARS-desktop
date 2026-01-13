@@ -3,10 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import React, { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, FolderOpen } from 'lucide-react';
+import { RefreshCw, FolderOpen, ArrowLeft } from 'lucide-react';
 import { Button } from '@renderer/components/ui/button';
 import FileList, { type FileInfo } from './FileList';
 import FileViewer from './FileViewer';
+
+type ViewMode = 'list' | 'preview';
 
 const FilePreview: React.FC = () => {
   const [files, setFiles] = useState<FileInfo[]>([]);
@@ -16,6 +18,7 @@ const FilePreview: React.FC = () => {
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
   const [workspacePath, setWorkspacePath] = useState<string>('');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   // Load workspace path
   useEffect(() => {
@@ -28,7 +31,11 @@ const FilePreview: React.FC = () => {
     try {
       const result = await window.electron.file.listWorkspace();
       if (result.success) {
-        setFiles(result.files);
+        // Filter out hidden files (starting with .)
+        const visibleFiles = result.files.filter(
+          (file) => !file.name.startsWith('.'),
+        );
+        setFiles(visibleFiles);
       } else {
         console.error('Failed to load files:', result.error);
         setFiles([]);
@@ -46,37 +53,36 @@ const FilePreview: React.FC = () => {
     loadFiles();
   }, [loadFiles]);
 
-  // Load file content when selection changes
-  useEffect(() => {
-    if (!selectedFile) {
-      setFileContent(null);
-      setContentError(null);
-      return;
-    }
+  // Load file content when entering preview mode
+  const handlePreviewFile = useCallback(async (file: FileInfo) => {
+    setSelectedFile(file);
+    setViewMode('preview');
+    setIsLoadingContent(true);
+    setContentError(null);
 
-    const loadContent = async () => {
-      setIsLoadingContent(true);
-      setContentError(null);
-      try {
-        const result = await window.electron.file.readFile(
-          selectedFile.fullPath,
-        );
-        if (result.success) {
-          setFileContent(result.content || '');
-        } else {
-          setContentError(result.error || 'Failed to load file');
-          setFileContent(null);
-        }
-      } catch (error) {
-        setContentError(String(error));
+    try {
+      const result = await window.electron.file.readFile(file.fullPath);
+      if (result.success) {
+        setFileContent(result.content || '');
+      } else {
+        setContentError(result.error || 'Failed to load file');
         setFileContent(null);
-      } finally {
-        setIsLoadingContent(false);
       }
-    };
+    } catch (error) {
+      setContentError(String(error));
+      setFileContent(null);
+    } finally {
+      setIsLoadingContent(false);
+    }
+  }, []);
 
-    loadContent();
-  }, [selectedFile]);
+  // Back to list view
+  const handleBackToList = useCallback(() => {
+    setViewMode('list');
+    setSelectedFile(null);
+    setFileContent(null);
+    setContentError(null);
+  }, []);
 
   // Open file location
   const handleOpenLocation = useCallback(async (file: FileInfo) => {
@@ -96,58 +102,85 @@ const FilePreview: React.FC = () => {
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header with refresh button */}
+      {/* Header */}
       <div className="flex-shrink-0 flex items-center justify-between px-3 py-2 border-b">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-muted-foreground">
-            Files ({files.length})
-          </span>
+          {viewMode === 'preview' ? (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleBackToList}
+                className="gap-1"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                返回
+              </Button>
+              <span className="text-sm font-medium truncate max-w-[200px]">
+                {selectedFile?.name}
+              </span>
+            </>
+          ) : (
+            <span className="text-sm font-medium text-muted-foreground">
+              文件 ({files.length})
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleOpenWorkspace}
-            title="Open workspace folder"
-          >
-            <FolderOpen className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={loadFiles}
-            disabled={isLoadingFiles}
-            title="Refresh file list"
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${isLoadingFiles ? 'animate-spin' : ''}`}
-            />
-          </Button>
+          {viewMode === 'list' && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleOpenWorkspace}
+                title="打开工作区文件夹"
+              >
+                <FolderOpen className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={loadFiles}
+                disabled={isLoadingFiles}
+                title="刷新文件列表"
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${isLoadingFiles ? 'animate-spin' : ''}`}
+                />
+              </Button>
+            </>
+          )}
+          {viewMode === 'preview' && selectedFile && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleOpenLocation(selectedFile)}
+              title="在文件夹中显示"
+            >
+              <FolderOpen className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Main content area - split view */}
-      <div className="flex-1 flex min-h-0">
-        {/* File list - left side */}
-        <div className="w-[35%] border-r flex-shrink-0">
+      {/* Main content area - single view with navigation */}
+      <div className="flex-1 min-h-0 overflow-hidden">
+        {viewMode === 'list' ? (
           <FileList
             files={files}
             selectedFile={selectedFile}
-            onSelectFile={setSelectedFile}
+            onPreviewFile={handlePreviewFile}
             onOpenLocation={handleOpenLocation}
             isLoading={isLoadingFiles}
           />
-        </div>
-
-        {/* File viewer - right side */}
-        <div className="flex-1 min-w-0">
+        ) : (
           <FileViewer
             file={selectedFile}
             content={fileContent}
             isLoading={isLoadingContent}
             error={contentError}
           />
-        </div>
+        )}
       </div>
     </div>
   );
