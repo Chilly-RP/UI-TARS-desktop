@@ -30,6 +30,7 @@ import {
 import ThoughtChain from '../../components/ThoughtChain';
 import { api } from '../../api';
 import ImageGallery from '../../components/ImageGallery';
+import FilePreview from '../../components/FilePreview';
 import { PredictionParsed, StatusEnum } from '@ui-tars/shared/types';
 import { RouterState } from '../../typings';
 import ChatInput from '../../components/ChatInput';
@@ -405,15 +406,19 @@ const LocalOperator = () => {
           />
         </Card>
         <Card className="flex-1 basis-3/5 p-3 h-[calc(100vh-76px)]">
-          <Tabs defaultValue="screenshot" className="flex-1">
+          <Tabs defaultValue="screenshot" className="h-full flex flex-col">
             <TabsList>
               <TabsTrigger value="screenshot">屏幕截图</TabsTrigger>
+              <TabsTrigger value="files">文件预览</TabsTrigger>
             </TabsList>
-            <TabsContent value="screenshot">
+            <TabsContent value="screenshot" className="flex-1 mt-0">
               <ImageGallery
                 messages={chatMessages}
                 selectImgIndex={selectImg}
               />
+            </TabsContent>
+            <TabsContent value="files" className="flex-1 mt-0">
+              <FilePreview />
             </TabsContent>
           </Tabs>
         </Card>

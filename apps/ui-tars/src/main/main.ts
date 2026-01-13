@@ -12,9 +12,12 @@ import {
   session,
   WebContentsView,
   screen,
+  shell,
 } from 'electron';
 import squirrelStartup from 'electron-squirrel-startup';
 import ElectronStore from 'electron-store';
+import * as path from 'path';
+import * as fs from 'fs/promises';
 
 import * as env from '@main/env';
 import { logger } from '@main/logger';
@@ -198,6 +201,124 @@ const registerIPCHandlers = (
   // TODO: move to ipc routes
   ipcMain.handle('utio:shareReport', async (_, params) => {
     await UTIOService.getInstance().shareReport(params);
+  });
+
+  // File preview IPC handlers
+  const workspacePath = path.join(
+    app.getPath('documents'),
+    'ui-tars-workspace',
+  );
+
+  ipcMain.handle('file:getWorkspacePath', () => {
+    return workspacePath;
+  });
+
+  ipcMain.handle('file:listWorkspace', async () => {
+    try {
+      // Ensure workspace directory exists
+      await fs.mkdir(workspacePath, { recursive: true });
+
+      const listFilesRecursively = async (
+        dir: string,
+        baseDir: string,
+      ): Promise<
+        {
+          name: string;
+          path: string;
+          fullPath: string;
+          size: number;
+          modifiedTime: number;
+          type: 'file' | 'directory';
+          extension: string;
+        }[]
+      > => {
+        const entries = await fs.readdir(dir, { withFileTypes: true });
+        const files: {
+          name: string;
+          path: string;
+          fullPath: string;
+          size: number;
+          modifiedTime: number;
+          type: 'file' | 'directory';
+          extension: string;
+        }[] = [];
+
+        for (const entry of entries) {
+          const fullPath = path.join(dir, entry.name);
+          const relativePath = path.relative(baseDir, fullPath);
+
+          if (entry.isFile()) {
+            const stats = await fs.stat(fullPath);
+            files.push({
+              name: entry.name,
+              path: relativePath,
+              fullPath,
+              size: stats.size,
+              modifiedTime: stats.mtimeMs,
+              type: 'file',
+              extension: path.extname(entry.name).toLowerCase(),
+            });
+          } else if (entry.isDirectory()) {
+            // Skip hidden directories
+            if (!entry.name.startsWith('.')) {
+              const subFiles = await listFilesRecursively(fullPath, baseDir);
+              files.push(...subFiles);
+            }
+          }
+        }
+
+        return files;
+      };
+
+      const files = await listFilesRecursively(workspacePath, workspacePath);
+      // Sort by modified time (newest first)
+      files.sort((a, b) => b.modifiedTime - a.modifiedTime);
+      return { success: true, files };
+    } catch (error) {
+      logger.error('[file:listWorkspace] Error:', error);
+      return { success: false, error: String(error), files: [] };
+    }
+  });
+
+  ipcMain.handle('file:readFile', async (_, filePath: string) => {
+    try {
+      // Security: ensure the file is within workspace
+      const normalizedPath = path.normalize(filePath);
+      if (!normalizedPath.startsWith(workspacePath)) {
+        return {
+          success: false,
+          error: 'Access denied: file outside workspace',
+        };
+      }
+
+      const stats = await fs.stat(normalizedPath);
+      if (stats.size > 10 * 1024 * 1024) {
+        return { success: false, error: 'File too large (max 10MB)' };
+      }
+
+      const content = await fs.readFile(normalizedPath, 'utf-8');
+      return { success: true, content };
+    } catch (error) {
+      logger.error('[file:readFile] Error:', error);
+      return { success: false, error: String(error) };
+    }
+  });
+
+  ipcMain.handle('file:openFileLocation', async (_, filePath: string) => {
+    try {
+      const normalizedPath = path.normalize(filePath);
+      if (!normalizedPath.startsWith(workspacePath)) {
+        return {
+          success: false,
+          error: 'Access denied: file outside workspace',
+        };
+      }
+      shell.showItemInFolder(normalizedPath);
+      return { success: true };
+    } catch (error) {
+      logger.error('[file:openFileLocation] Error:', error);
+      return { success: false, error: String(error) };
+    }
   });
 
   registerSettingsHandlers();

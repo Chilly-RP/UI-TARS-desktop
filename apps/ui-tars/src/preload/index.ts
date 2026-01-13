@@ -35,6 +35,35 @@ const electronHandler = {
     shareReport: (params: UTIOPayload<'shareReport'>) =>
       ipcRenderer.invoke('utio:shareReport', params),
   },
+  file: {
+    getWorkspacePath: () =>
+      ipcRenderer.invoke('file:getWorkspacePath') as Promise<string>,
+    listWorkspace: () =>
+      ipcRenderer.invoke('file:listWorkspace') as Promise<{
+        success: boolean;
+        files: {
+          name: string;
+          path: string;
+          fullPath: string;
+          size: number;
+          modifiedTime: number;
+          type: 'file' | 'directory';
+          extension: string;
+        }[];
+        error?: string;
+      }>,
+    readFile: (filePath: string) =>
+      ipcRenderer.invoke('file:readFile', filePath) as Promise<{
+        success: boolean;
+        content?: string;
+        error?: string;
+      }>,
+    openFileLocation: (filePath: string) =>
+      ipcRenderer.invoke('file:openFileLocation', filePath) as Promise<{
+        success: boolean;
+        error?: string;
+      }>,
+  },
   setting: {
     getSetting: () => ipcRenderer.invoke('setting:get'),
     clearSetting: () => ipcRenderer.invoke('setting:clear'),

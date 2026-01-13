@@ -6,65 +6,122 @@ export const Markdown = memo(({ children }: { children: string }) => {
     <ReactMarkdown
       components={{
         h1: ({ children }) => (
-          <h1 className="font-bold text-2xl mb-2 mt-4 first:mt-0">
+          <h1 className="font-bold text-2xl mb-3 mt-6 first:mt-0 pb-2 border-b border-gray-200">
             {children}
           </h1>
         ),
         h2: ({ children }) => (
-          <h2 className="font-bold text-xl mb-2 mt-4 first:mt-0">{children}</h2>
+          <h2 className="font-bold text-xl mb-3 mt-5 first:mt-0 pb-1 border-b border-gray-100">
+            {children}
+          </h2>
         ),
         h3: ({ children }) => (
           <h3 className="font-bold text-lg mb-2 mt-4 first:mt-0">{children}</h3>
         ),
         h4: ({ children }) => (
-          <h4 className="font-bold text-base mb-2 mt-4 first:mt-0">
+          <h4 className="font-semibold text-base mb-2 mt-4 first:mt-0">
             {children}
           </h4>
         ),
+        h5: ({ children }) => (
+          <h5 className="font-semibold text-sm mb-2 mt-3 first:mt-0">
+            {children}
+          </h5>
+        ),
+        h6: ({ children }) => (
+          <h6 className="font-semibold text-sm mb-2 mt-3 first:mt-0 text-gray-600">
+            {children}
+          </h6>
+        ),
         ul: ({ children }) => (
-          <ul className="list-disc list-inside mb-3">{children}</ul>
+          <ul className="list-disc list-outside ml-6 mb-3 space-y-1">
+            {children}
+          </ul>
         ),
         ol: ({ children }) => (
-          <ol className="list-decimal list-inside mb-3">{children}</ol>
+          <ol className="list-decimal list-outside ml-6 mb-3 space-y-1">
+            {children}
+          </ol>
         ),
-        li: ({ children }) => <li className="ml-2">{children}</li>,
-        p: ({ children }) => <p className="mb-2">{children}</p>,
+        li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+        p: ({ children }) => <p className="mb-3 leading-relaxed">{children}</p>,
         strong: ({ children }) => (
           <strong className="font-semibold">{children}</strong>
         ),
         em: ({ children }) => <em className="italic">{children}</em>,
         blockquote: ({ children }) => (
-          <blockquote className="border-l-4 border-blue-300 pl-4 py-2 mb-3 bg-blue-50 italic text-gray-700">
+          <blockquote className="border-l-4 border-blue-400 pl-4 py-2 mb-4 bg-blue-50/50 text-gray-700 rounded-r">
             {children}
           </blockquote>
         ),
-        hr: () => <hr className="border-0 border-t border-gray-300 my-6" />,
+        hr: () => <hr className="border-0 border-t border-gray-200 my-6" />,
         a: ({ children, href, title }) => (
           <a
             href={href}
             title={title}
-            className="text-blue-600 hover:text-blue-800 underline transition-colors"
+            className="text-blue-600 hover:text-blue-800 underline underline-offset-2 transition-colors"
             target="_blank"
             rel="noopener noreferrer"
           >
             {children}
           </a>
         ),
-        del: ({ children }) => <del className="line-through">{children}</del>,
+        del: ({ children }) => (
+          <del className="line-through text-gray-500">{children}</del>
+        ),
         code: ({ children, className }) => {
+          // Inline code (no className means no language specified)
           if (!className) {
             return (
-              <code className="bg-gray-100 text-red-600 px-1.5 py-0.5 rounded font-mono">
+              <code className="bg-gray-100 text-red-600 px-1.5 py-0.5 rounded text-sm font-mono">
                 {children}
               </code>
             );
           }
+          // Code block with language
           return <code className={className}>{children}</code>;
         },
         pre: ({ children }) => (
-          <pre className="bg-gray-50 border border-gray-200 rounded-md p-3 mb-3 overflow-x-auto whitespace-pre-wrap">
-            <code className="text-sm font-mono text-gray-800">{children}</code>
+          <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 mb-4 overflow-x-auto">
+            <code className="text-sm font-mono leading-relaxed">
+              {children}
+            </code>
           </pre>
+        ),
+        // Table support
+        table: ({ children }) => (
+          <div className="overflow-x-auto mb-4">
+            <table className="min-w-full border-collapse border border-gray-200 rounded-lg overflow-hidden">
+              {children}
+            </table>
+          </div>
+        ),
+        thead: ({ children }) => (
+          <thead className="bg-gray-50">{children}</thead>
+        ),
+        tbody: ({ children }) => (
+          <tbody className="divide-y divide-gray-200">{children}</tbody>
+        ),
+        tr: ({ children }) => (
+          <tr className="hover:bg-gray-50 transition-colors">{children}</tr>
+        ),
+        th: ({ children }) => (
+          <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700 border-b border-gray-200">
+            {children}
+          </th>
+        ),
+        td: ({ children }) => (
+          <td className="px-4 py-2 text-sm text-gray-600 border-b border-gray-100">
+            {children}
+          </td>
+        ),
+        // Image support
+        img: ({ src, alt }) => (
+          <img
+            src={src}
+            alt={alt}
+            className="max-w-full h-auto rounded-lg my-4 shadow-sm"
+          />
         ),
       }}
     >
