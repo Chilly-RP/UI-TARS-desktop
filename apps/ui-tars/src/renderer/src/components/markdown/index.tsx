@@ -1,9 +1,11 @@
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { memo } from 'react';
 
 export const Markdown = memo(({ children }: { children: string }) => {
   return (
     <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
       components={{
         h1: ({ children }) => (
           <h1 className="font-bold text-2xl mb-3 mt-6 first:mt-0 pb-2 border-b border-gray-200">
