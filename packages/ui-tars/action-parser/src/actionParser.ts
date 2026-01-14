@@ -314,6 +314,22 @@ function parseAction(actionStr: string) {
           value = `(${value})`;
         }
 
+        // Process escape characters for content-type parameters
+        // Convert Python-style escape sequences to actual characters
+        if (
+          key.trim() === 'content' ||
+          key.trim() === 'command' ||
+          key.trim() === 'path'
+        ) {
+          value = value
+            .replace(/\\n/g, '\n')
+            .replace(/\\t/g, '\t')
+            .replace(/\\r/g, '\r')
+            .replace(/\\'/g, "'")
+            .replace(/\\"/g, '"')
+            .replace(/\\\\/g, '\\');
+        }
+
         //@ts-ignore
         kwargs[key.trim()] = value;
       }

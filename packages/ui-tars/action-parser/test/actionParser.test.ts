@@ -445,6 +445,53 @@ Action: click(start_box='[130,226]')`;
     });
   });
 
+  // Escape character handling
+  describe('Escape character handling', () => {
+    it('should correctly convert \\\\n to actual newline in content', () => {
+      const input = `Thought: Writing content with newlines
+Action: file(operation='write', path='test.md', content='# Title\\n\\nThis is a paragraph.\\n\\n## Section 2')`;
+
+      const result = parseActionVlm(input, [1000, 1000], 'bc');
+
+      expect(result[0].action_inputs.content).toBe(
+        '# Title\n\nThis is a paragraph.\n\n## Section 2',
+      );
+    });
+
+    it('should correctly handle escaped quotes in content', () => {
+      const input = `Thought: Writing content with quotes
+Action: type(content='He said \\'Hello\\' and \\"World\\"')`;
+
+      const result = parseActionVlm(input, [1000, 1000], 'bc');
+
+      expect(result[0].action_inputs.content).toBe(
+        'He said \'Hello\' and "World"',
+      );
+    });
+
+    it('should correctly handle multiple escape sequences', () => {
+      const input = `Thought: Writing content with various escapes
+Action: file(operation='write', path='test.txt', content='Line1\\nLine2\\tTabbed\\\\Backslash')`;
+
+      const result = parseActionVlm(input, [1000, 1000], 'bc');
+
+      expect(result[0].action_inputs.content).toBe(
+        'Line1\nLine2\tTabbed\\Backslash',
+      );
+    });
+
+    it('should handle finished action with newlines in content', () => {
+      const input = `Thought: Task completed
+Action: finished(content='Task completed successfully.\\n\\nSummary:\\n- Item 1\\n- Item 2')`;
+
+      const result = parseActionVlm(input, [1000, 1000], 'bc');
+
+      expect(result[0].action_inputs.content).toBe(
+        'Task completed successfully.\n\nSummary:\n- Item 1\n- Item 2',
+      );
+    });
+  });
+
   // Edge cases
   describe('Edge cases', () => {
     it('should handle input without Action keyword', () => {
