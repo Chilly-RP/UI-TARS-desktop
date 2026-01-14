@@ -4,8 +4,8 @@
  */
 import React from 'react';
 import { FileText, AlertCircle } from 'lucide-react';
-import { ScrollArea } from '@renderer/components/ui/scroll-area';
 import { Markdown } from '@renderer/components/markdown';
+import { ScrollArea } from '@renderer/components/ui/scroll-area';
 import type { FileInfo } from './FileList';
 
 interface FileViewerProps {
@@ -62,19 +62,21 @@ const FileViewer: React.FC<FileViewerProps> = ({
   const isMarkdown = file.extension === '.md';
 
   return (
-    <ScrollArea className="h-full">
-      <div className="p-4">
-        {isMarkdown ? (
-          <div className="prose prose-sm max-w-none dark:prose-invert">
-            <Markdown>{content}</Markdown>
-          </div>
-        ) : (
-          <pre className="text-sm font-mono whitespace-pre-wrap break-words text-gray-700 dark:text-gray-300 leading-relaxed">
-            {content}
-          </pre>
-        )}
-      </div>
-    </ScrollArea>
+    <div className="h-full w-full min-h-0">
+      <ScrollArea className="h-full w-full">
+        <div className="p-4">
+          {isMarkdown ? (
+            <div className="prose prose-sm w-full max-w-full dark:prose-invert break-words overflow-wrap-anywhere">
+              <Markdown>{content}</Markdown>
+            </div>
+          ) : (
+            <pre className="text-sm font-mono whitespace-pre-wrap break-words text-gray-700 dark:text-gray-300 leading-relaxed overflow-auto">
+              {content}
+            </pre>
+          )}
+        </div>
+      </ScrollArea>
+    </div>
   );
 };
 

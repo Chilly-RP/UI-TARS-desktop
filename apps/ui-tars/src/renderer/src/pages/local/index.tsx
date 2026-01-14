@@ -411,13 +411,13 @@ const LocalOperator = () => {
               <TabsTrigger value="screenshot">屏幕截图</TabsTrigger>
               <TabsTrigger value="files">文件预览</TabsTrigger>
             </TabsList>
-            <TabsContent value="screenshot" className="flex-1 mt-0">
+            <TabsContent value="screenshot" className="flex-1 mt-0 min-h-0">
               <ImageGallery
                 messages={chatMessages}
                 selectImgIndex={selectImg}
               />
             </TabsContent>
-            <TabsContent value="files" className="flex-1 mt-0">
+            <TabsContent value="files" className="flex-1 mt-0 min-h-0">
               <FilePreview />
             </TabsContent>
           </Tabs>
