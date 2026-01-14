@@ -351,5 +351,8 @@ export class NutJSOperator extends Operator {
       default:
         logger.warn(`Unsupported action: ${action_type}`);
     }
+
+    // @ts-expect-error fix type later
+    return {};
   }
 }

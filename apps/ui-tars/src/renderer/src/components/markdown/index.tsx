@@ -43,8 +43,14 @@ export const Markdown = memo(({ children }: { children: string }) => {
             {children}
           </ol>
         ),
-        li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-        p: ({ children }) => <p className="mb-3 leading-relaxed">{children}</p>,
+        li: ({ children }) => (
+          <li className="leading-relaxed break-words">{children}</li>
+        ),
+        p: ({ children }) => (
+          <p className="mb-3 leading-relaxed break-words overflow-hidden">
+            {children}
+          </p>
+        ),
         strong: ({ children }) => (
           <strong className="font-semibold">{children}</strong>
         ),
@@ -73,7 +79,7 @@ export const Markdown = memo(({ children }: { children: string }) => {
           // Inline code (no className means no language specified)
           if (!className) {
             return (
-              <code className="bg-gray-100 text-red-600 px-1.5 py-0.5 rounded text-sm font-mono">
+              <code className="bg-gray-100 text-red-600 px-1.5 py-0.5 rounded text-sm font-mono break-all">
                 {children}
               </code>
             );
@@ -82,8 +88,8 @@ export const Markdown = memo(({ children }: { children: string }) => {
           return <code className={className}>{children}</code>;
         },
         pre: ({ children }) => (
-          <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 mb-4 overflow-x-auto">
-            <code className="text-sm font-mono leading-relaxed">
+          <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 mb-4 overflow-x-auto max-w-full">
+            <code className="text-sm font-mono leading-relaxed whitespace-pre-wrap break-words">
               {children}
             </code>
           </pre>

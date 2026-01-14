@@ -303,5 +303,8 @@ export class AdbOperator extends Operator {
       logger.error('[AdbOperator] Error:', error);
       throw error;
     }
+
+    // @ts-expect-error fix type later
+    return {};
   }
 }

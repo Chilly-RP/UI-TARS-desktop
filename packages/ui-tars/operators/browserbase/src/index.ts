@@ -125,5 +125,8 @@ User Instruction: Who is the top GitHub contributor to Stagehand by Browserbase?
         await stagehand.close();
         return { status: StatusEnum.END };
     }
+
+    // @ts-expect-error fix type later
+    return {};
   }
 }
