@@ -212,7 +212,7 @@ export function parseActionVlm(
           actionInputs[
             paramName.trim() as keyof Omit<
               ActionInputs,
-              'start_coords' | 'end_coords' | 'bash' | 'file'
+              'start_coords' | 'end_coords' | 'bash' | 'file' | 'code'
             >
           ] = JSON.stringify(floatNumbers);
 
@@ -242,7 +242,7 @@ export function parseActionVlm(
           actionInputs[
             paramName.trim() as keyof Omit<
               ActionInputs,
-              'start_coords' | 'end_coords' | 'bash' | 'file'
+              'start_coords' | 'end_coords' | 'bash' | 'file' | 'code'
             >
           ] = trimmedParam;
         }

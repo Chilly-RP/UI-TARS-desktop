@@ -118,6 +118,7 @@ file(operation='read|write|append|list|delete', path='<path>', content='<text>')
 skill(action='list') # List all available skills for specialized tasks.
 skill(name='<skill_name>', action='load') # Load a skill's documentation to learn specialized workflows.
 skill(name='<skill_name>', action='load', file='<filename>') # Load a specific file from a skill.
+code(language='javascript', content='<code>') # Execute JavaScript code in sandbox
 finished(content='xxx') # Use escape characters \\', \\", and \n in content part to ensure we can parse the content in normal python string format.
 
 

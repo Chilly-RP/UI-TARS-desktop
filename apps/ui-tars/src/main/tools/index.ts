@@ -44,3 +44,22 @@ export type {
   SkillExecutionResult,
   SkillSummary,
 } from './skill';
+
+// Code tool exports
+export {
+  CodeExecutor,
+  CodeValidator,
+  CodeSandbox,
+  BLOCKED_APIS,
+  BLOCKED_MODULES,
+  DANGEROUS_PATTERNS,
+  MAX_CODE_LENGTH,
+  MAX_OUTPUT_SIZE,
+  DEFAULT_TIMEOUT,
+} from './code';
+
+export type {
+  CodeActionInputs,
+  CodeExecutionResult,
+  CodeValidationResult,
+} from './code';

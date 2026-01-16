@@ -18,7 +18,12 @@ import { logger } from '@main/logger';
 import { sleep } from '@ui-tars/shared/utils';
 import { getScreenSize } from '@main/utils/screen';
 import { SettingStore } from '@main/store/setting';
-import { BashExecutor, FileExecutor, SkillExecutor } from '@main/tools';
+import {
+  BashExecutor,
+  FileExecutor,
+  SkillExecutor,
+  CodeExecutor,
+} from '@main/tools';
 
 // Local type definitions for tool inputs
 // These mirror the types in @ui-tars/shared/types/agent.ts
@@ -44,6 +49,12 @@ interface SkillActionInputs {
   file?: string;
 }
 
+interface CodeActionInputs {
+  language: 'javascript';
+  content: string;
+  timeout?: number;
+}
+
 export class NutJSElectronOperator extends NutJSOperator {
   static MANUAL = {
     ACTION_SPACES: [
@@ -63,6 +74,7 @@ export class NutJSElectronOperator extends NutJSOperator {
       `skill(action='list') # List all available skills for specialized tasks like document editing.`,
       `skill(name='<skill_name>', action='load') # Load a skill's documentation to learn how to perform specialized tasks.`,
       `skill(name='<skill_name>', action='load', file='<filename>') # Load a specific supporting file from a skill.`,
+      `code(language='javascript', content='<code>') # Execute JavaScript code in sandbox (~/Documents/ui-tars-workspace). Timeout: 30s. Allowed: path, url, util, fs (sandbox-restricted), npm packages (if globally installed). Example: code(language='javascript', content='const docx = require("docx"); console.log("Hello")').`,
     ],
   };
 
@@ -70,6 +82,7 @@ export class NutJSElectronOperator extends NutJSOperator {
   private bashExecutor: BashExecutor | null = null;
   private fileExecutor: FileExecutor | null = null;
   private skillExecutor: SkillExecutor | null = null;
+  private codeExecutor: CodeExecutor | null = null;
 
   private getBashExecutor(): BashExecutor {
     if (!this.bashExecutor) {
@@ -90,6 +103,13 @@ export class NutJSElectronOperator extends NutJSOperator {
       this.skillExecutor = new SkillExecutor();
     }
     return this.skillExecutor;
+  }
+
+  private getCodeExecutor(): CodeExecutor {
+    if (!this.codeExecutor) {
+      this.codeExecutor = new CodeExecutor();
+    }
+    return this.codeExecutor;
   }
 
   // Screenshot compression parameters - now read from settings
@@ -198,6 +218,10 @@ export class NutJSElectronOperator extends NutJSOperator {
 
     if (action_type === 'skill') {
       return await this.executeSkill(action_inputs);
+    }
+
+    if (action_type === 'code') {
+      return await this.executeCode(action_inputs);
     }
 
     // Restore coordinates to original resolution
@@ -403,6 +427,66 @@ export class NutJSElectronOperator extends NutJSOperator {
     }
 
     logger.info('[NutJSElectronOperator] Skill execution succeeded');
+    return {
+      status: StatusEnum.RUNNING,
+      toolOutput: result.output || '(no output)',
+    };
+  }
+
+  /**
+   * Execute code action
+   */
+  private async executeCode(
+    actionInputs: Record<string, unknown>,
+  ): Promise<ExecuteOutput> {
+    // Support both nested format (actionInputs.code) and flat format
+    let codeInputs: CodeActionInputs | undefined;
+
+    if (actionInputs.code) {
+      // Nested format: { code: { language: 'javascript', content: '...' } }
+      codeInputs = actionInputs.code as CodeActionInputs;
+    } else if (actionInputs.language && actionInputs.content) {
+      // Flat format: { language: 'javascript', content: '...' }
+      codeInputs = {
+        language: actionInputs.language as 'javascript',
+        content: actionInputs.content as string,
+        timeout: actionInputs.timeout as number | undefined,
+      };
+    }
+
+    if (!codeInputs || !codeInputs.language || !codeInputs.content) {
+      logger.error('[NutJSElectronOperator] Invalid code action inputs');
+      return {
+        status: StatusEnum.ERROR,
+        toolOutput:
+          'Invalid code action inputs: language and content are required',
+      };
+    }
+
+    logger.info(
+      '[NutJSElectronOperator] Executing code:',
+      codeInputs.language,
+      'content length:',
+      codeInputs.content.length,
+    );
+
+    const result = await this.getCodeExecutor().execute(codeInputs);
+
+    if (!result.success) {
+      logger.error(
+        '[NutJSElectronOperator] Code execution failed:',
+        result.error,
+      );
+      return {
+        status: StatusEnum.ERROR,
+        toolOutput: `Code execution failed: ${result.error || 'Unknown error'}\n${result.stderr || ''}`,
+      };
+    }
+
+    logger.info(
+      '[NutJSElectronOperator] Code execution succeeded, output:',
+      result.output,
+    );
     return {
       status: StatusEnum.RUNNING,
       toolOutput: result.output || '(no output)',

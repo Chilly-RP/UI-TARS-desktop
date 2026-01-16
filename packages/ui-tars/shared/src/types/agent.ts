@@ -85,6 +85,13 @@ export interface FileActionInputs {
   content?: string; // Content for write/append operations
 }
 
+// Code action inputs
+export interface CodeActionInputs {
+  language: 'javascript'; // Currently only JavaScript is supported
+  content: string; // Code content to execute
+  timeout?: number; // Execution timeout in milliseconds, default 30000
+}
+
 export type ActionInputs = Partial<{
   content: string;
   start_box: string;
@@ -97,6 +104,7 @@ export type ActionInputs = Partial<{
   // Tool inputs
   bash: BashActionInputs;
   file: FileActionInputs;
+  code: CodeActionInputs;
 }>;
 
 export interface PredictionParsed {
