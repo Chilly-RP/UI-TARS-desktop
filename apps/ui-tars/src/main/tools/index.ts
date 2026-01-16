@@ -28,3 +28,19 @@ export {
   BLOCKED_EXTENSIONS,
   BLOCKED_FILENAMES,
 } from './file';
+
+// Skill tool exports
+export {
+  SkillExecutor,
+  SkillLoader,
+  SkillValidator,
+} from './skill';
+
+export type {
+  Skill,
+  SkillMetadata,
+  SkillAction,
+  SkillActionInputs,
+  SkillExecutionResult,
+  SkillSummary,
+} from './skill';

@@ -18,7 +18,7 @@ import { logger } from '@main/logger';
 import { sleep } from '@ui-tars/shared/utils';
 import { getScreenSize } from '@main/utils/screen';
 import { SettingStore } from '@main/store/setting';
-import { BashExecutor, FileExecutor } from '@main/tools';
+import { BashExecutor, FileExecutor, SkillExecutor } from '@main/tools';
 
 // Local type definitions for tool inputs
 // These mirror the types in @ui-tars/shared/types/agent.ts
@@ -34,6 +34,14 @@ interface FileActionInputs {
   operation: FileOperation;
   path: string;
   content?: string;
+}
+
+type SkillAction = 'load' | 'list' | 'info';
+
+interface SkillActionInputs {
+  name?: string;
+  action: SkillAction;
+  file?: string;
 }
 
 export class NutJSElectronOperator extends NutJSOperator {
@@ -52,12 +60,16 @@ export class NutJSElectronOperator extends NutJSOperator {
       // Extended tools for Skills support
       `bash(command='<cmd>') # Execute whitelisted bash commands. Examples: bash(command='ls'), bash(command='ls -la'), bash(command='cat file.txt'), bash(command='grep pattern file'). Allowed: cat, ls, grep, head, tail, find, pwd, date, whoami. Forbidden: rm, mv, cp, chmod, sudo.`,
       `file(operation='<op>', path='<path>', content='<text>') # File operations in sandbox (~/Documents/ui-tars-workspace). Operations: read, write, append, list, delete. Examples: file(operation='list', path='.'), file(operation='read', path='notes.txt'), file(operation='write', path='output.txt', content='hello').`,
+      `skill(action='list') # List all available skills for specialized tasks like document editing.`,
+      `skill(name='<skill_name>', action='load') # Load a skill's documentation to learn how to perform specialized tasks.`,
+      `skill(name='<skill_name>', action='load', file='<filename>') # Load a specific supporting file from a skill.`,
     ],
   };
 
   // Tool executors for extended capabilities
   private bashExecutor: BashExecutor | null = null;
   private fileExecutor: FileExecutor | null = null;
+  private skillExecutor: SkillExecutor | null = null;
 
   private getBashExecutor(): BashExecutor {
     if (!this.bashExecutor) {
@@ -71,6 +83,13 @@ export class NutJSElectronOperator extends NutJSOperator {
       this.fileExecutor = new FileExecutor();
     }
     return this.fileExecutor;
+  }
+
+  private getSkillExecutor(): SkillExecutor {
+    if (!this.skillExecutor) {
+      this.skillExecutor = new SkillExecutor();
+    }
+    return this.skillExecutor;
   }
 
   // Screenshot compression parameters - now read from settings
@@ -175,6 +194,10 @@ export class NutJSElectronOperator extends NutJSOperator {
 
     if (action_type === 'file') {
       return await this.executeFile(action_inputs);
+    }
+
+    if (action_type === 'skill') {
+      return await this.executeSkill(action_inputs);
     }
 
     // Restore coordinates to original resolution
@@ -327,6 +350,62 @@ export class NutJSElectronOperator extends NutJSOperator {
     return {
       status: StatusEnum.RUNNING,
       toolOutput: result.output || '(operation completed)',
+    };
+  }
+
+  /**
+   * Execute skill action
+   */
+  private async executeSkill(
+    actionInputs: Record<string, unknown>,
+  ): Promise<ExecuteOutput> {
+    // Support both nested format (actionInputs.skill) and flat format
+    let skillInputs: SkillActionInputs | undefined;
+
+    if (actionInputs.skill) {
+      // Nested format: { skill: { action: 'load', name: 'docx' } }
+      skillInputs = actionInputs.skill as SkillActionInputs;
+    } else if (actionInputs.action) {
+      // Flat format: { action: 'load', name: 'docx', file: '...' }
+      skillInputs = {
+        name: actionInputs.name as string | undefined,
+        action: actionInputs.action as SkillAction,
+        file: actionInputs.file as string | undefined,
+      };
+    }
+
+    if (!skillInputs || !skillInputs.action) {
+      logger.error('[NutJSElectronOperator] Invalid skill action inputs');
+      return {
+        status: StatusEnum.ERROR,
+        toolOutput: 'Invalid skill action inputs: action is required',
+      };
+    }
+
+    logger.info(
+      '[NutJSElectronOperator] Executing skill action:',
+      skillInputs.action,
+      'skill:',
+      skillInputs.name || 'N/A',
+    );
+
+    const result = await this.getSkillExecutor().execute(skillInputs);
+
+    if (!result.success) {
+      logger.error(
+        '[NutJSElectronOperator] Skill execution failed:',
+        result.error,
+      );
+      return {
+        status: StatusEnum.ERROR,
+        toolOutput: `Skill action failed: ${result.error || 'Unknown error'}`,
+      };
+    }
+
+    logger.info('[NutJSElectronOperator] Skill execution succeeded');
+    return {
+      status: StatusEnum.RUNNING,
+      toolOutput: result.output || '(no output)',
     };
   }
 }
