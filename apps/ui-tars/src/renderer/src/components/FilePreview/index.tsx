@@ -14,6 +14,7 @@ const FilePreview: React.FC = () => {
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [selectedFile, setSelectedFile] = useState<FileInfo | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
+  const [isHtmlContent, setIsHtmlContent] = useState(false);
   const [isLoadingFiles, setIsLoadingFiles] = useState(true);
   const [isLoadingContent, setIsLoadingContent] = useState(false);
   const [contentError, setContentError] = useState<string | null>(null);
@@ -59,11 +60,13 @@ const FilePreview: React.FC = () => {
     setViewMode('preview');
     setIsLoadingContent(true);
     setContentError(null);
+    setIsHtmlContent(false);
 
     try {
       const result = await window.electron.file.readFile(file.fullPath);
       if (result.success) {
         setFileContent(result.content || '');
+        setIsHtmlContent(result.isHtml || false);
       } else {
         setContentError(result.error || 'Failed to load file');
         setFileContent(null);
@@ -82,6 +85,7 @@ const FilePreview: React.FC = () => {
     setSelectedFile(null);
     setFileContent(null);
     setContentError(null);
+    setIsHtmlContent(false);
   }, []);
 
   // Open file location
@@ -179,6 +183,7 @@ const FilePreview: React.FC = () => {
             content={fileContent}
             isLoading={isLoadingContent}
             error={contentError}
+            isHtml={isHtmlContent}
           />
         )}
       </div>

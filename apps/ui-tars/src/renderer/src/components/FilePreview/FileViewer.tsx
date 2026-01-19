@@ -13,6 +13,7 @@ interface FileViewerProps {
   content: string | null;
   isLoading: boolean;
   error: string | null;
+  isHtml?: boolean;
 }
 
 const FileViewer: React.FC<FileViewerProps> = ({
@@ -20,6 +21,7 @@ const FileViewer: React.FC<FileViewerProps> = ({
   content,
   isLoading,
   error,
+  isHtml = false,
 }) => {
   // Empty state
   if (!file) {
@@ -65,7 +67,12 @@ const FileViewer: React.FC<FileViewerProps> = ({
     <div className="h-full w-full min-h-0">
       <ScrollArea className="h-full w-full">
         <div className="p-4">
-          {isMarkdown ? (
+          {isHtml ? (
+            <div
+              className="prose prose-sm w-full max-w-full dark:prose-invert break-words overflow-wrap-anywhere"
+              dangerouslySetInnerHTML={{ __html: content }}
+            />
+          ) : isMarkdown ? (
             <div className="prose prose-sm w-full max-w-full dark:prose-invert break-words overflow-wrap-anywhere">
               <Markdown>{content}</Markdown>
             </div>

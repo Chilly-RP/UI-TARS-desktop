@@ -57,6 +57,7 @@ const electronHandler = {
         success: boolean;
         content?: string;
         error?: string;
+        isHtml?: boolean;
       }>,
     openFileLocation: (filePath: string) =>
       ipcRenderer.invoke('file:openFileLocation', filePath) as Promise<{

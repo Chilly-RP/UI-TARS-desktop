@@ -18,6 +18,7 @@ import squirrelStartup from 'electron-squirrel-startup';
 import ElectronStore from 'electron-store';
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import mammoth from 'mammoth';
 
 import * as env from '@main/env';
 import { logger } from '@main/logger';
@@ -294,6 +295,14 @@ const registerIPCHandlers = (
       const stats = await fs.stat(normalizedPath);
       if (stats.size > 10 * 1024 * 1024) {
         return { success: false, error: 'File too large (max 10MB)' };
+      }
+
+      const extension = path.extname(normalizedPath).toLowerCase();
+
+      // Handle docx files with mammoth
+      if (extension === '.docx') {
+        const result = await mammoth.convertToHtml({ path: normalizedPath });
+        return { success: true, content: result.value, isHtml: true };
       }
 
       const content = await fs.readFile(normalizedPath, 'utf-8');
