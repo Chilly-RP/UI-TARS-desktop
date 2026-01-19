@@ -4,19 +4,53 @@ Generate .docx files with JavaScript/TypeScript.
 
 **Important: Read this entire document before starting.** Critical formatting rules and common pitfalls are covered throughout - skipping sections may result in corrupted files or rendering issues.
 
+## ⚠️ CRITICAL: API Version Warning (docx v7+)
+
+**The old API is DEPRECATED and WILL NOT WORK. You MUST use the new API.**
+
+```javascript
+// ❌ OLD API - DOES NOT WORK (will throw "Cannot read properties of undefined")
+const doc = new Document();
+doc.addParagraph(new Paragraph({...}));  // ❌ This method does NOT exist!
+doc.addSection({...});                    // ❌ This method does NOT exist!
+
+// ✅ NEW API - CORRECT (docx v7+)
+const doc = new Document({
+  sections: [{
+    children: [
+      new Paragraph({...}),
+      new Paragraph({...}),
+    ]
+  }]
+});
+```
+
+**Key differences:**
+- Document content MUST be defined in the constructor via `sections` array
+- Each section has a `children` array containing Paragraph, Table, etc.
+- There is NO `addParagraph()`, `addSection()`, or any "add" methods
+- All content is declarative, defined upfront in the Document constructor
+
 ## Setup
 Assumes docx is already installed globally
 If not installed: `npm install -g docx`
 
 ```javascript
-const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, ImageRun, Media, 
-        Header, Footer, AlignmentType, PageOrientation, LevelFormat, ExternalHyperlink, 
-        InternalHyperlink, TableOfContents, HeadingLevel, BorderStyle, WidthType, TabStopType, 
+const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, ImageRun, Media,
+        Header, Footer, AlignmentType, PageOrientation, LevelFormat, ExternalHyperlink,
+        InternalHyperlink, TableOfContents, HeadingLevel, BorderStyle, WidthType, TabStopType,
         TabStopPosition, UnderlineType, ShadingType, VerticalAlign, SymbolRun, PageNumber,
         FootnoteReferenceRun, Footnote, PageBreak } = require('docx');
+const fs = require('fs');
 
-// Create & Save
-const doc = new Document({ sections: [{ children: [/* content */] }] });
+// Create & Save - ALL content defined in constructor
+const doc = new Document({
+  sections: [{
+    children: [
+      new Paragraph({ children: [new TextRun("Hello World")] })
+    ]
+  }]
+});
 Packer.toBuffer(doc).then(buffer => fs.writeFileSync("doc.docx", buffer)); // Node.js
 Packer.toBlob(doc).then(blob => { /* download logic */ }); // Browser
 ```
@@ -332,7 +366,69 @@ new Paragraph({
 - **Tabs:** `LEFT`, `CENTER`, `RIGHT`, `DECIMAL`
 - **Symbols:** `"2022"` (•), `"00A9"` (©), `"00AE"` (®), `"2122"` (™), `"00B0"` (°), `"F070"` (✓), `"F0FC"` (✗)
 
+## Complete Working Example
+```javascript
+// Full example: Create a document with title, headings, and paragraphs
+const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = require('docx');
+const fs = require('fs');
+
+const doc = new Document({
+  styles: {
+    default: {
+      document: {
+        run: { font: "Arial", size: 24 } // 12pt default
+      }
+    }
+  },
+  sections: [{
+    properties: {
+      page: { margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } }
+    },
+    children: [
+      // Title
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 400 },
+        children: [
+          new TextRun({
+            text: "大语言模型（LLM）概述",
+            bold: true,
+            size: 48  // 24pt (size is in half-points)
+          })
+        ]
+      }),
+      // Body paragraph
+      new Paragraph({
+        spacing: { after: 200 },
+        children: [
+          new TextRun({
+            text: "大语言模型（Large Language Model, LLM）是基于深度学习的人工智能系统，能够处理和生成自然语言。其通过大规模文本数据训练，具备理解复杂语义、执行多任务（如问答、翻译、创作）的能力。",
+            size: 24  // 12pt
+          })
+        ]
+      }),
+      // Another paragraph
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: "典型代表包括GPT系列、LLaMA等，推动了自然语言处理技术的突破性发展。",
+            size: 24
+          })
+        ]
+      })
+    ]
+  }]
+});
+
+// Save the document
+Packer.toBuffer(doc).then(buffer => {
+  fs.writeFileSync("llm_document.docx", buffer);
+  console.log("Document created successfully!");
+});
+```
+
 ## Critical Issues & Common Mistakes
+- **⚠️ CRITICAL: Use NEW API only** - `new Document({ sections: [...] })`. The old `doc.addParagraph()` API DOES NOT EXIST in docx v7+
 - **CRITICAL: PageBreak must ALWAYS be inside a Paragraph** - standalone PageBreak creates invalid XML that Word cannot open
 - **ALWAYS use ShadingType.CLEAR for table cell shading** - Never use ShadingType.SOLID (causes black background).
 - Measurements in DXA (1440 = 1 inch) | Each table cell needs ≥1 Paragraph | TOC requires HeadingLevel styles only

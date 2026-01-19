@@ -3,14 +3,73 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import * as os from 'os';
+import { app } from 'electron';
 import { logger } from '@main/logger';
 import { CodeActionInputs, CodeExecutionResult } from './types';
 import { CodeSandbox, MAX_OUTPUT_SIZE, DEFAULT_TIMEOUT } from './sandbox';
 import { CodeValidator } from './validator';
+
+// Cache the npm global root path
+let npmGlobalRoot: string | null = null;
+
+function getNpmGlobalRoot(): string | null {
+  if (npmGlobalRoot !== null) {
+    return npmGlobalRoot;
+  }
+  try {
+    npmGlobalRoot = execSync('npm root -g', { encoding: 'utf-8' }).trim();
+    logger.info(`[CodeExecutor] npm global root: ${npmGlobalRoot}`);
+    return npmGlobalRoot;
+  } catch (e) {
+    logger.warn(`[CodeExecutor] Failed to get npm global root: ${e}`);
+    return null;
+  }
+}
+
+/**
+ * Get NODE_PATH that includes app's node_modules for external package resolution
+ */
+function getNodePath(): string {
+  const paths: string[] = [];
+
+  // Add existing NODE_PATH
+  if (process.env.NODE_PATH) {
+    paths.push(process.env.NODE_PATH);
+  }
+
+  // Add app's node_modules (for development)
+  const appPath = app.getAppPath();
+  paths.push(path.join(appPath, 'node_modules'));
+
+  // Add project root node_modules (for monorepo structure)
+  const projectRoot = path.resolve(appPath, '..', '..', '..');
+  paths.push(path.join(projectRoot, 'node_modules'));
+
+  // Add global npm modules path (dynamically detected)
+  const globalRoot = getNpmGlobalRoot();
+  if (globalRoot) {
+    paths.push(globalRoot);
+  }
+
+  // Add fallback global npm paths
+  const homeDir = os.homedir();
+  // Common global npm paths on macOS/Linux
+  paths.push('/usr/local/lib/node_modules');
+  paths.push('/usr/lib/node_modules');
+  paths.push(path.join(homeDir, '.npm-global', 'lib', 'node_modules'));
+  paths.push(path.join(homeDir, '.nvm', 'versions', 'node', process.version, 'lib', 'node_modules'));
+  // fnm support
+  paths.push(path.join(homeDir, 'Library', 'Application Support', 'fnm', 'node-versions', process.version.slice(1), 'installation', 'lib', 'node_modules'));
+  // npm prefix global path (derived from node executable path)
+  const nodeDir = path.dirname(process.execPath);
+  paths.push(path.join(nodeDir, '..', 'lib', 'node_modules'));
+
+  return paths.join(path.delimiter);
+}
 
 /**
  * Code executor
@@ -144,16 +203,14 @@ const safeRequire = (moduleName) => {
   }
 };
 
-// Replace globals
-const __dirname = SANDBOX_ROOT;
-const __filename = pathModule.join(SANDBOX_ROOT, 'script.js');
-
 // Execute user code
 (async () => {
   try {
+    // Override globals within function scope to avoid redeclaration error
+    const __dirname = SANDBOX_ROOT;
+    const __filename = pathModule.join(SANDBOX_ROOT, 'script.js');
+    // Only override require - let user code declare fs/path via require() to avoid redeclaration errors
     const require = safeRequire;
-    const path = ALLOWED_MODULES.path;
-    const fs = safeFs;
 
 ${userCode}
   } catch (err) {
@@ -178,14 +235,19 @@ ${userCode}
       let stderr = '';
       let killed = false;
 
+      // Include sandbox's node_modules as well
+      const sandboxNodeModules = path.join(sandboxRoot, 'node_modules');
+      const nodePath = `${sandboxNodeModules}${path.delimiter}${getNodePath()}`;
+      logger.info(`[CodeExecutor] NODE_PATH: ${nodePath}`);
+
       const proc = spawn('node', [scriptPath], {
         cwd: sandboxRoot,
         env: {
           PATH: process.env.PATH,
           HOME: process.env.HOME,
           NODE_ENV: 'production',
-          // Allow npm global modules
-          NODE_PATH: process.env.NODE_PATH || '',
+          // Include app's node_modules for external package resolution
+          NODE_PATH: nodePath,
         },
         stdio: ['ignore', 'pipe', 'pipe'],
       });
