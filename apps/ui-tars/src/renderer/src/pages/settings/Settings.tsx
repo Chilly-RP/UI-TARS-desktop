@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 // /apps/ui-tars/src/renderer/src/pages/settings/index.tsx
-import { RefreshCcw, Trash } from 'lucide-react';
+import { RefreshCcw, Trash, Eye, EyeOff, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { useRef, useEffect, useState } from 'react';
 import * as z from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -61,10 +61,17 @@ const formSchema = z.object({
   asrAppKey: z.string().optional(),
   asrAccessKey: z.string().optional(),
   asrWsUrl: z.string().optional(),
+  // LLM Settings
+  llmBaseUrl: z.string().url().optional().or(z.literal('')),
+  llmApiKey: z.string().optional(),
+  llmModelName: z.string().optional(),
+  llmReasoningEffort: z.enum(['minimal', 'low', 'medium', 'high']).optional(),
+  llmUseResponsesApi: z.boolean().optional(),
 });
 
 const SECTIONS = {
   vlm: 'VLM Settings',
+  llm: 'LLM Settings',
   chat: 'Chat Settings',
   asr: 'ASR Settings',
   report: 'Report Settings',
@@ -84,6 +91,13 @@ export default function Settings() {
     version: string;
     link: string | null;
   } | null>();
+  // LLM Settings states
+  const [showLLMPassword, setShowLLMPassword] = useState(false);
+  const [llmCheckState, setLlmCheckState] = useState<{
+    status: 'idle' | 'checking' | 'success' | 'error';
+    message?: string;
+    responseApiSupported?: boolean;
+  }>({ status: 'idle' });
 
   const handleCheckForUpdates = async () => {
     setUpdateLoading(true);
@@ -135,6 +149,12 @@ export default function Settings() {
       asrAppKey: '',
       asrAccessKey: '',
       asrWsUrl: 'wss://openspeech.bytedance.com/api/v3/sauc/bigmodel',
+      // LLM Settings
+      llmBaseUrl: '',
+      llmApiKey: '',
+      llmModelName: '',
+      llmReasoningEffort: 'low',
+      llmUseResponsesApi: false,
       ...settings,
     },
   });
@@ -156,6 +176,12 @@ export default function Settings() {
         asrWsUrl:
           settings.asrWsUrl ||
           'wss://openspeech.bytedance.com/api/v3/sauc/bigmodel',
+        // LLM Settings
+        llmBaseUrl: settings.llmBaseUrl || '',
+        llmApiKey: settings.llmApiKey || '',
+        llmModelName: settings.llmModelName || '',
+        llmReasoningEffort: settings.llmReasoningEffort || 'low',
+        llmUseResponsesApi: settings.llmUseResponsesApi || false,
       });
     }
   }, [settings, form]);
@@ -399,6 +425,210 @@ export default function Settings() {
                   )}
                 />
               </div>
+
+              {/* LLM Settings */}
+              <div
+                id="llm"
+                ref={(el) => {
+                  sectionRefs.current.llm = el;
+                }}
+                className="space-y-6 pt-6 ml-1 mr-4"
+              >
+                <h2 className="text-lg font-medium">{SECTIONS.llm}</h2>
+                {/* LLM Base URL */}
+                <FormField
+                  control={form.control}
+                  name="llmBaseUrl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>LLM Base URL</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Enter LLM Base URL (e.g., https://ark.cn-beijing.volces.com/api/v3)"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {/* LLM API Key */}
+                <FormField
+                  control={form.control}
+                  name="llmApiKey"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>API Key</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Input
+                            type={showLLMPassword ? 'text' : 'password'}
+                            placeholder="Enter API Key"
+                            {...field}
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                            onClick={() => setShowLLMPassword(!showLLMPassword)}
+                          >
+                            {showLLMPassword ? (
+                              <Eye className="h-4 w-4 text-gray-500" />
+                            ) : (
+                              <EyeOff className="h-4 w-4 text-gray-500" />
+                            )}
+                          </Button>
+                        </div>
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                {/* LLM Model Name */}
+                <FormField
+                  control={form.control}
+                  name="llmModelName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Model Name</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Enter Model Name (e.g., doubao-seed-1-8)"
+                          {...field}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                {/* Reasoning Effort */}
+                <FormField
+                  control={form.control}
+                  name="llmReasoningEffort"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Reasoning Effort</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select reasoning effort" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="minimal">Minimal</SelectItem>
+                          <SelectItem value="low">Low</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="high">High</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {/* Use Response API */}
+                <FormField
+                  control={form.control}
+                  name="llmUseResponsesApi"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Use Response API</FormLabel>
+                      <FormControl>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={field.value}
+                            onChange={(e) => field.onChange(e.target.checked)}
+                            className="h-4 w-4 rounded border-gray-300"
+                          />
+                          <span className="text-sm text-gray-500">
+                            Use OpenAI Response API instead of Chat Completions API
+                          </span>
+                        </div>
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                {/* Check Model Availability */}
+                <div className="space-y-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      const llmBaseUrl = form.getValues('llmBaseUrl');
+                      const llmApiKey = form.getValues('llmApiKey');
+                      const llmModelName = form.getValues('llmModelName');
+
+                      if (!llmBaseUrl || !llmApiKey || !llmModelName) {
+                        toast.error('Please fill in all required fields before checking model availability');
+                        return;
+                      }
+
+                      setLlmCheckState({ status: 'checking' });
+
+                      try {
+                        const modelConfig = {
+                          baseUrl: llmBaseUrl,
+                          apiKey: llmApiKey,
+                          modelName: llmModelName,
+                        };
+                        const [isAvailable, responseApiSupported] = await Promise.all([
+                          api.checkLLMModelAvailability(modelConfig),
+                          api.checkLLMResponseApiSupport(modelConfig),
+                        ]);
+
+                        if (isAvailable) {
+                          setLlmCheckState({
+                            status: 'success',
+                            message: `Model "${llmModelName}" is available${
+                              responseApiSupported
+                                ? '. Response API is supported.'
+                                : '. Response API is not supported.'
+                            }`,
+                            responseApiSupported,
+                          });
+                        } else {
+                          setLlmCheckState({
+                            status: 'error',
+                            message: `Model "${llmModelName}" is not responding correctly`,
+                          });
+                        }
+                      } catch (error) {
+                        setLlmCheckState({
+                          status: 'error',
+                          message: `Failed to connect: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                        });
+                      }
+                    }}
+                    disabled={llmCheckState.status === 'checking'}
+                    className="w-50"
+                  >
+                    {llmCheckState.status === 'checking' ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Checking Model...
+                      </>
+                    ) : (
+                      'Check Model Availability'
+                    )}
+                  </Button>
+
+                  {llmCheckState.status === 'success' && (
+                    <div className="flex items-start gap-2 rounded-md border border-green-200 bg-green-50 p-3">
+                      <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                      <p className="text-sm text-green-800">{llmCheckState.message}</p>
+                    </div>
+                  )}
+
+                  {llmCheckState.status === 'error' && (
+                    <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3">
+                      <XCircle className="h-4 w-4 text-red-600 mt-0.5" />
+                      <p className="text-sm text-red-800">{llmCheckState.message}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Chat Settings */}
               <div
                 id="chat"

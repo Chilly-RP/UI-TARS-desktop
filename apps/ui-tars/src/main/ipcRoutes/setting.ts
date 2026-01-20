@@ -57,4 +57,53 @@ export const settingRoute = t.router({
         throw e;
       }
     }),
+  // LLM Model Availability Check (for DoubaoSeedModel)
+  checkLLMModelAvailability: t.procedure
+    .input<{
+      baseUrl: string;
+      apiKey: string;
+      modelName: string;
+    }>()
+    .handle(async ({ input }) => {
+      try {
+        const openai = new OpenAI({
+          apiKey: input.apiKey,
+          baseURL: input.baseUrl,
+        });
+        const completion = await openai.chat.completions.create({
+          model: input.modelName,
+          messages: [{ role: 'user', content: 'return 1+1=?' }],
+          stream: false,
+        });
+        console.log('[checkLLMModelAvailability] result', completion);
+        return Boolean(completion?.id || completion.choices[0].message.content);
+      } catch (e) {
+        throw e;
+      }
+    }),
+  // LLM Response API Support Check (for DoubaoSeedModel)
+  checkLLMResponseApiSupport: t.procedure
+    .input<{
+      baseUrl: string;
+      apiKey: string;
+      modelName: string;
+    }>()
+    .handle(async ({ input }) => {
+      try {
+        const openai = new OpenAI({
+          apiKey: input.apiKey,
+          baseURL: input.baseUrl,
+        });
+        const result = await openai.responses.create({
+          model: input.modelName,
+          input: 'return 1+1=?',
+          stream: false,
+        });
+        console.log('[checkLLMResponseApiSupport] result', result);
+        return Boolean(result?.id || result?.previous_response_id);
+      } catch (e) {
+        logger.warn('[checkLLMResponseApiSupport] failed:', e);
+        return false;
+      }
+    }),
 });

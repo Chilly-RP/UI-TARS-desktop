@@ -34,6 +34,12 @@ export const DEFAULT_SETTING: LocalStore = {
   resolutionScaleFactor: 0.7,
   screenshotJpegQuality: 75,
   preprocessPngQuality: 60,
+  // LLM Settings (for DoubaoSeedModel)
+  llmBaseUrl: '',
+  llmApiKey: '',
+  llmModelName: '',
+  llmReasoningEffort: 'low',
+  llmUseResponsesApi: false,
 };
 
 export class SettingStore {

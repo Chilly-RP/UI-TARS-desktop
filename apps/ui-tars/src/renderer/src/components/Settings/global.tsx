@@ -6,6 +6,7 @@ import {
   TabsTrigger,
 } from '@renderer/components/ui/tabs';
 import {
+  Brain,
   Cpu,
   MessagesSquare,
   Sparkles,
@@ -25,6 +26,7 @@ import { Separator } from '@renderer/components/ui/separator';
 import { ScrollArea } from '@renderer/components/ui/scroll-area';
 
 import { VLMSettings } from './category/vlm';
+import { LLMSettings } from './category/llm';
 import { ChatSettings } from './category/chat';
 import { ASRSettings } from './category/asr';
 import { LocalBrowserSettings } from './category/localBrowser';
@@ -65,6 +67,13 @@ export const GlobalSettings = () => {
               >
                 <Sparkles strokeWidth={2} />
                 VLM Settings
+              </TabsTrigger>
+              <TabsTrigger
+                value="llm"
+                className="w-full justify-start gap-2 px-2 py-1.5 mb-2 !shadow-none font-normal data-[state=active]:font-medium data-[state=active]:bg-accent data-[state=active]:text-accent-foreground hover:bg-accent/50"
+              >
+                <Brain strokeWidth={2} />
+                LLM Settings
               </TabsTrigger>
               <TabsTrigger
                 value="chat"
@@ -117,6 +126,14 @@ export const GlobalSettings = () => {
                 <h2 className="text-xl font-semibold mb-3">VLM Settings</h2>
                 <Separator className="mb-4" />
                 <VLMSettings autoSave={true} />
+              </ScrollArea>
+            </TabsContent>
+
+            <TabsContent value="llm" className="mt-0">
+              <ScrollArea className="h-[calc(80vh-48px)]">
+                <h2 className="text-xl font-semibold mb-3">LLM Settings</h2>
+                <Separator className="mb-4" />
+                <LLMSettings />
               </ScrollArea>
             </TabsContent>
 

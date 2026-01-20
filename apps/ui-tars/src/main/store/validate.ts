@@ -52,6 +52,13 @@ export const PresetSchema = z.object({
   asrAppKey: z.string().optional(),
   asrAccessKey: z.string().optional(),
   asrWsUrl: z.string().optional(),
+
+  // LLM Settings (for DoubaoSeedModel)
+  llmBaseUrl: z.string().url().optional().or(z.literal('')),
+  llmApiKey: z.string().optional(),
+  llmModelName: z.string().optional(),
+  llmReasoningEffort: z.enum(['minimal', 'low', 'medium', 'high']).optional(),
+  llmUseResponsesApi: z.boolean().optional(),
 });
 
 export type PresetSource = z.infer<typeof PresetSourceSchema>;
