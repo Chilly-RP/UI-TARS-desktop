@@ -48,6 +48,250 @@ export interface ThinkingVisionProModelConfig extends ChatCompletionCreateParams
   };
 }
 
+export interface DoubaoSeedModelConfig extends OpenAIChatCompletionCreateParams {
+  /** Whether to use OpenAI Response API instead of Chat Completions API */
+  useResponsesApi?: boolean;
+  /** Reasoning effort level: 'minimal' | 'low' | 'medium' | 'high' */
+  reasoning_effort?: 'minimal' | 'low' | 'medium' | 'high';
+  /** Enable web search for response API */
+  enableWebSearch?: boolean;
+}
+
+export class DoubaoSeedModel extends Model {
+  constructor(protected readonly modelConfig: DoubaoSeedModelConfig) {
+    super();
+    this.modelConfig = modelConfig;
+  }
+
+  get useResponsesApi(): boolean {
+    return this.modelConfig.useResponsesApi ?? false;
+  }
+
+  /** [widthFactor, heightFactor] */
+  get factors(): [number, number] {
+    return DEFAULT_FACTORS;
+  }
+
+  get modelName(): string {
+    return this.modelConfig.model ?? 'doubao-seed-1-8-251228';
+  }
+
+  /**
+   * reset the model state
+   */
+  reset() {
+    // No state to reset for this model
+  }
+
+  /**
+   * call DoubaoSeed model using Chat API or Response API
+   */
+  protected async invokeModelProvider(
+    params: {
+      messages: Array<ChatCompletionMessageParam>;
+      previousResponseId?: string;
+    },
+    options: {
+      signal?: AbortSignal;
+    },
+    headers?: Record<string, string>,
+  ): Promise<{
+    prediction: string;
+    costTime?: number;
+    costTokens?: number;
+    responseId?: string;
+  }> {
+    const { logger } = useContext();
+    const { messages, previousResponseId } = params;
+    const {
+      baseURL,
+      apiKey,
+      model,
+      max_tokens = 4096,
+      temperature = 0.7,
+      top_p = 0.7,
+      reasoning_effort = 'low',
+      enableWebSearch = false,
+      ...restOptions
+    } = this.modelConfig;
+
+    const openai = new OpenAI({
+      ...restOptions,
+      maxRetries: 0,
+      baseURL,
+      apiKey,
+    });
+
+    const startTime = Date.now();
+
+    // 过滤掉图片内容，只保留文本
+    const filteredMessages = messages.map((msg) => {
+      if (msg.role === 'user' && Array.isArray(msg.content)) {
+        return {
+          ...msg,
+          content: msg.content.filter((item: any) => item.type === 'text'),
+        };
+      }
+      return msg;
+    });
+
+    if (this.modelConfig.useResponsesApi) {
+      // Use Response API
+      logger.info('[DoubaoSeed ResponseAPI] Calling with reasoning_effort:', reasoning_effort);
+
+      // 转换消息格式为 Response API 的 input 格式
+      const inputs = filteredMessages.map((msg): ResponseInputItem => {
+        if (msg.role === 'user') {
+          const content = Array.isArray(msg.content)
+            ? msg.content
+            : [{ type: 'input_text' as const, text: msg.content }];
+
+          const formattedContent = content.map((item: any) => {
+            if (item.type === 'text') {
+              return { type: 'input_text' as const, text: item.text };
+            }
+            // 保留 image_url 参数但不实际使用
+            if (item.type === 'image_url') {
+              return { type: 'input_image' as const, image_url: '' };
+            }
+            return item;
+          });
+
+          return {
+            role: 'user',
+            content: formattedContent,
+          };
+        }
+        return msg as ResponseInputItem;
+      });
+
+      // 构建 tools 参数
+      const tools = enableWebSearch
+        ? [
+            {
+              type: 'web_search' as const,
+            },
+          ]
+        : undefined;
+
+      const responseParams: ResponseCreateParamsNonStreaming = {
+        input: inputs,
+        model,
+        temperature,
+        top_p,
+        stream: false,
+        max_output_tokens: max_tokens,
+        ...(previousResponseId && {
+          previous_response_id: previousResponseId,
+        }),
+        ...(tools && { tools }),
+        // @ts-expect-error - reasoning_effort is a custom parameter
+        reasoning_effort,
+      };
+
+      const result = await openai.responses.create(responseParams, {
+        ...options,
+        timeout: 1000 * 60,
+        headers,
+      });
+
+      logger.info('[DoubaoSeed ResponseAPI] Result:', result);
+
+      return {
+        prediction: result?.output_text ?? '',
+        costTime: Date.now() - startTime,
+        costTokens: result?.usage?.total_tokens ?? 0,
+        responseId: result?.id,
+      };
+    } else {
+      // Use Chat Completions API
+      logger.info('[DoubaoSeed ChatAPI] Calling with reasoning_effort:', reasoning_effort);
+
+      const createCompletionParams = {
+        model,
+        messages: filteredMessages,
+        stream: false,
+        max_tokens,
+        temperature,
+        top_p,
+        reasoning_effort,
+      } as ChatCompletionCreateParamsNonStreaming & { reasoning_effort: string };
+
+      const result = await openai.chat.completions.create(createCompletionParams, {
+        ...options,
+        timeout: 1000 * 60,
+        headers,
+      });
+
+      return {
+        prediction: result.choices?.[0]?.message?.content ?? '',
+        costTime: Date.now() - startTime,
+        costTokens: result.usage?.total_tokens ?? 0,
+      };
+    }
+  }
+
+  async invoke(params: InvokeParams): Promise<InvokeOutput> {
+    const {
+      conversations,
+      screenContext,
+      scaleFactor,
+      uiTarsVersion,
+      headers,
+      previousResponseId,
+    } = params;
+    const { logger, signal } = useContext();
+
+    logger?.info(
+      `[DoubaoSeedModel] invoke: screenContext=${JSON.stringify(screenContext)}, scaleFactor=${scaleFactor}, uiTarsVersion=${uiTarsVersion}, useResponsesApi=${this.modelConfig.useResponsesApi}, reasoning_effort=${this.modelConfig.reasoning_effort}`,
+    );
+
+    // 不传图片，只使用对话内容
+    const messages = convertToOpenAIMessages({
+      conversations,
+      images: [],
+    });
+
+    const startTime = Date.now();
+    const result = await this.invokeModelProvider(
+      {
+        messages,
+        previousResponseId,
+      },
+      {
+        signal,
+      },
+      headers,
+    )
+      .catch((e) => {
+        logger?.error('[DoubaoSeedModel] error', e);
+        throw e;
+      })
+      .finally(() => {
+        logger?.info(`[DoubaoSeedModel cost]: ${Date.now() - startTime}ms`);
+      });
+
+    if (!result.prediction) {
+      const err = new Error();
+      err.name = 'DoubaoSeed response error';
+      err.stack = JSON.stringify(result) ?? 'no message';
+      logger?.error(err);
+      throw err;
+    }
+
+    const { prediction, costTime, costTokens, responseId } = result;
+
+    // DoubaoSeed 模型主要用于对话，不需要解析操作
+    return {
+      prediction,
+      parsedPredictions: [],
+      costTime,
+      costTokens,
+      responseId,
+    };
+  }
+}
+
 export class UITarsModel extends Model {
   constructor(protected readonly modelConfig: UITarsModelConfig) {
     super();

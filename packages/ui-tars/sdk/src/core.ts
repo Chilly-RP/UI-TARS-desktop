@@ -10,7 +10,7 @@ export {
   type ExecuteOutput,
   type ScreenshotOutput,
 } from './types';
-export { UITarsModel, type UITarsModelConfig } from './Model';
+export { UITarsModel, type UITarsModelConfig, DoubaoSeedModel, type DoubaoSeedModelConfig } from './Model';
 export { useContext } from './context/useContext';
 export {
   parseBoxToScreenCoords,
