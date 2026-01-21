@@ -8,6 +8,7 @@ import {
   getSystemPrompt,
   getSystemPromptDoubao_15_15B,
   getSystemPromptDoubao_15_20B,
+  getSystemPromptDoubaoSeed,
   getSystemPromptV1_5,
 } from '../agent/prompts';
 import {
@@ -45,6 +46,8 @@ export const getSpByModelVersion = (
   operatorType: 'browser' | 'computer',
 ) => {
   switch (modelVersion) {
+    case UITarsModelVersion.DOUBAO_SEED_1_8:
+      return getSystemPromptDoubaoSeed();
     case UITarsModelVersion.DOUBAO_1_5_20B:
       return getSystemPromptDoubao_15_20B(language, operatorType);
     case UITarsModelVersion.DOUBAO_1_5_15B:

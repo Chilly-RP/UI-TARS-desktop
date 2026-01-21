@@ -59,7 +59,7 @@ export class ModelConfigManager {
       };
 
       const systemPrompt = getSpByModelVersion(
-        UITarsModelVersion.V1_0,
+        UITarsModelVersion.DOUBAO_SEED_1_8,
         language as 'zh' | 'en',
         operatorType,
       );
@@ -71,7 +71,7 @@ export class ModelConfigManager {
       return {
         modelConfig,
         modelAuthHdrs: {},
-        modelVersion: UITarsModelVersion.V1_0,
+        modelVersion: UITarsModelVersion.DOUBAO_SEED_1_8,
         systemPrompt,
         customModel,
       };
