@@ -6,6 +6,7 @@
 import { logger } from '@main/logger';
 import { StatusEnum } from '@ui-tars/shared/types';
 import { NutJSElectronOperator } from '../agent/operator';
+import { LocalAgentOperator } from '../agent/localAgentOperator';
 import {
   createRemoteBrowserOperator,
   RemoteComputerOperator,
@@ -89,6 +90,12 @@ export class OperatorFactory {
         return {
           operator: await createRemoteBrowserOperator(),
           operatorType: 'browser',
+        };
+
+      case Operator.LocalAgent:
+        return {
+          operator: new LocalAgentOperator(),
+          operatorType: 'computer',
         };
 
       default:

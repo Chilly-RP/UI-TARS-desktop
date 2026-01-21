@@ -10,17 +10,22 @@ import { getModelVersion, getSpByModelVersion } from '../utils/agent';
 import { FREE_MODEL_BASE_URL } from '../remote/shared';
 import { getAuthHeader } from '../remote/auth';
 import { ProxyClient } from '../remote/proxyClient';
-import { UITarsModel, type UITarsModelConfig } from '@ui-tars/sdk/core';
+import {
+  UITarsModel,
+  type UITarsModelConfig,
+  DoubaoSeedModel,
+  type DoubaoSeedModelConfig,
+} from '@ui-tars/sdk/core';
 import { SettingStore } from '@main/store/setting';
 import * as fs from 'fs';
 import * as path from 'path';
 
 export interface ModelConfigResult {
-  modelConfig: UITarsModelConfig;
+  modelConfig: UITarsModelConfig | DoubaoSeedModelConfig;
   modelAuthHdrs: Record<string, string>;
   modelVersion: UITarsModelVersion;
   systemPrompt: string;
-  customModel: UITarsModel;
+  customModel: UITarsModel | DoubaoSeedModel;
 }
 
 /**
@@ -40,6 +45,37 @@ export class ModelConfigManager {
     language: string,
   ): Promise<ModelConfigResult> {
     logger.info('[ModelConfigManager] 创建模型配置');
+
+    // LocalAgent uses DoubaoSeedModel with LLM settings
+    if (settings.operator === Operator.LocalAgent) {
+      const modelConfig: DoubaoSeedModelConfig = {
+        baseURL: settings.llmBaseUrl,
+        // secretlint-disable-next-line
+        apiKey: settings.llmApiKey,
+        model: settings.llmModelName || 'doubao-seed-1-8-251228',
+        useResponsesApi: settings.llmUseResponsesApi || false,
+        reasoning_effort: settings.llmReasoningEffort || 'low',
+        enableWebSearch: true,
+      };
+
+      const systemPrompt = getSpByModelVersion(
+        UITarsModelVersion.V1_0,
+        language as 'zh' | 'en',
+        operatorType,
+      );
+
+      const customModel = new DoubaoSeedModel(modelConfig);
+
+      logger.info('[ModelConfigManager] LocalAgent using DoubaoSeedModel');
+
+      return {
+        modelConfig,
+        modelAuthHdrs: {},
+        modelVersion: UITarsModelVersion.V1_0,
+        systemPrompt,
+        customModel,
+      };
+    }
 
     let modelVersion = getModelVersion(settings.vlmProvider);
     let modelConfig: UITarsModelConfig = {

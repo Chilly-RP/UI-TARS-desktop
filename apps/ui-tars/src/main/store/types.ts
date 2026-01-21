@@ -59,6 +59,7 @@ export enum Operator {
   RemoteBrowser = 'Remote Browser Operator',
   LocalComputer = 'Local Computer Operator',
   LocalBrowser = 'Local Browser Operator',
+  LocalAgent = 'Local Agent Assistant',
 }
 
 export type { PresetSource, LocalStore };

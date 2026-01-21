@@ -22,7 +22,8 @@ import {
   LocalSettingsDialog,
 } from '@renderer/components/Settings/local';
 
-import computerUseImg from '@resources/home_img/computer_use.png?url';
+import computerUseImg from '@resources/home_img/gui_agent.png?url';
+import agentUseImg from '@resources/home_img/agent_ui.png?url';
 import { sleep } from '@ui-tars/shared/utils';
 
 import { FreeTrialDialog } from '../../components/AlertDialog/freeTrialDialog';
@@ -213,6 +214,29 @@ const Home = () => {
                 className="w-full"
               >
                 开始使用电脑操作助手
+              </Button>
+            </CardFooter>
+          </Card>
+          <Card className="w-[400px] py-5">
+            <CardHeader className="px-5">
+              <CardTitle>Agent助手</CardTitle>
+              <CardDescription>
+                基于先进的思考模型，可以回复问题，也可以通过Skills执行任务，让AI成为您数字生活的高效助手。
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="px-5">
+            <img
+                src={agentUseImg}
+                alt=""
+                className="w-full h-full aspect-video object-fill rounded-lg"
+              />
+            </CardContent>
+            <CardFooter className="gap-3 px-5 flex justify-between">
+              <Button
+                onClick={() => handleLocalPress(Operator.LocalAgent)}
+                className="w-full"
+              >
+                开始使用Agent助手
               </Button>
             </CardFooter>
           </Card>

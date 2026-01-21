@@ -32,11 +32,13 @@ import { api } from '../../api';
 import ImageGallery from '../../components/ImageGallery';
 import FilePreview from '../../components/FilePreview';
 import { PredictionParsed, StatusEnum } from '@ui-tars/shared/types';
+import { Operator } from '@main/store/types';
 import { RouterState } from '../../typings';
 import ChatInput from '../../components/ChatInput';
 import { NavDialog } from '../../components/AlertDialog/navDialog';
 import {
   checkVLMSettings,
+  checkLLMSettings,
   LocalSettingsDialog,
 } from '../../components/Settings/local';
 import { sleep } from '@ui-tars/shared/utils';
@@ -260,6 +262,18 @@ const LocalOperator = () => {
   };
 
   const checkVLM = async () => {
+    // Use different settings check based on operator type
+    if (state.operator === Operator.LocalAgent) {
+      const hasLLM = await checkLLMSettings();
+      if (hasLLM) {
+        return true;
+      } else {
+        setLocalOpen(true);
+        return false;
+      }
+    }
+
+    // Original VLM check for other operators
     const hasVLM = await checkVLMSettings();
 
     if (hasVLM) {
@@ -412,10 +426,16 @@ const LocalOperator = () => {
               <TabsTrigger value="files">文件预览</TabsTrigger>
             </TabsList>
             <TabsContent value="screenshot" className="flex-1 mt-0 min-h-0">
-              <ImageGallery
-                messages={chatMessages}
-                selectImgIndex={selectImg}
-              />
+              {state.operator === Operator.LocalAgent ? (
+                <div className="h-full flex items-center justify-center text-muted-foreground">
+                  <p>Agent助手是对话模式，不需要屏幕截图功能</p>
+                </div>
+              ) : (
+                <ImageGallery
+                  messages={chatMessages}
+                  selectImgIndex={selectImg}
+                />
+              )}
             </TabsContent>
             <TabsContent value="files" className="flex-1 mt-0 min-h-0">
               <FilePreview />

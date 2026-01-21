@@ -79,6 +79,10 @@ export const beforeAgentRun = async (operator: Operator) => {
       showWidgetWindow();
       showHumanInterventionWindow();
       break;
+    case Operator.LocalAgent:
+      // LocalAgent is conversational, keep main window visible
+      // No screen markers or waterflows needed
+      break;
     default:
       break;
   }
@@ -101,6 +105,9 @@ export const afterAgentRun = (operator: Operator) => {
       hideWidgetWindow();
       hideHumanInterventionWindow();
       showMainWindow();
+      break;
+    case Operator.LocalAgent:
+      // Main window stays visible
       break;
     default:
       break;

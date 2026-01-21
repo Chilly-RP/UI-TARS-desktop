@@ -31,6 +31,20 @@ export const checkVLMSettings = async () => {
   return false;
 };
 
+export const checkLLMSettings = async () => {
+  const settingRpc = window.electron.setting;
+
+  const currentSetting = ((await settingRpc.getSetting()) ||
+    {}) as Partial<LocalStore>;
+  const { llmApiKey, llmBaseUrl, llmModelName } = currentSetting;
+
+  if (llmApiKey && llmBaseUrl && llmModelName) {
+    return true;
+  }
+
+  return false;
+};
+
 export const LocalSettingsDialog = ({
   isOpen,
   onSubmit,
