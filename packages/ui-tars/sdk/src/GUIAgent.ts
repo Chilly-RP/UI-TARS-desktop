@@ -20,7 +20,7 @@ import { Jimp } from 'jimp';
 import { v4 as uuidv4 } from 'uuid';
 
 import { setContext } from './context/useContext';
-import { Operator, GUIAgentConfig, InvokeParams } from './types';
+import { Operator, GUIAgentConfig, InvokeParams, Model } from './types';
 import { UITarsModel } from './Model';
 import { BaseGUIAgent } from './base';
 import {
@@ -41,7 +41,7 @@ export class GUIAgent<T extends Operator> extends BaseGUIAgent<
   GUIAgentConfig<T>
 > {
   private readonly operator: T;
-  private readonly model: InstanceType<typeof UITarsModel>;
+  private readonly model: Model;
   private readonly logger: NonNullable<GUIAgentConfig<T>['logger']>;
   private uiTarsVersion?: UITarsModelVersion;
   private systemPrompt: string;
@@ -56,7 +56,7 @@ export class GUIAgent<T extends Operator> extends BaseGUIAgent<
     this.operator = config.operator;
 
     this.model =
-      config.model instanceof UITarsModel
+      config.model instanceof Model
         ? config.model
         : new UITarsModel(config.model);
     this.logger = config.logger || console;
@@ -77,6 +77,10 @@ export class GUIAgent<T extends Operator> extends BaseGUIAgent<
       retry = {},
       maxLoopCount = MAX_LOOP_COUNT,
     } = this.config;
+    const supportsScreenshot =
+      (operator.constructor as typeof Operator & {
+        SUPPORTS_SCREENSHOT?: boolean;
+      }).SUPPORTS_SCREENSHOT !== false;
 
     const currentTime = Date.now();
     const data: GUIAgentData = {
@@ -183,35 +187,50 @@ export class GUIAgent<T extends Operator> extends BaseGUIAgent<
         loopCnt += 1;
         const start = Date.now();
 
-        const snapshot = await asyncRetry(() => operator.screenshot(), {
-          retries: retry?.screenshot?.maxRetries ?? 0,
-          minTimeout: 5000,
-          onRetry: retry?.screenshot?.onRetry,
-        });
+        let width = 0;
+        let height = 0;
+        let mime = '';
+        let scaleFactor = 1;
 
-        const { width, height, mime } = await Jimp.fromBuffer(
-          Buffer.from(replaceBase64Prefix(snapshot.base64), 'base64'),
-        ).catch((e) => {
-          logger.error('[GUIAgent] screenshot error', e);
-          return {
-            width: null,
-            height: null,
-            mime: '',
-          };
-        });
+        if (supportsScreenshot) {
+          const snapshot = await asyncRetry(() => operator.screenshot(), {
+            retries: retry?.screenshot?.maxRetries ?? 0,
+            minTimeout: 5000,
+            onRetry: retry?.screenshot?.onRetry,
+          });
 
-        const isValidImage = !!(snapshot?.base64 && width && height);
+          scaleFactor = snapshot?.scaleFactor ?? 1;
 
-        if (!isValidImage) {
-          loopCnt -= 1;
-          snapshotErrCnt += 1;
-          await sleep(1000);
-          continue;
-        }
+          const {
+            width: snapshotWidth,
+            height: snapshotHeight,
+            mime: snapshotMime,
+          } = await Jimp.fromBuffer(
+            Buffer.from(replaceBase64Prefix(snapshot.base64), 'base64'),
+          ).catch((e) => {
+            logger.error('[GUIAgent] screenshot error', e);
+            return {
+              width: null,
+              height: null,
+              mime: '',
+            };
+          });
 
-        let end = Date.now();
+          width = snapshotWidth || 0;
+          height = snapshotHeight || 0;
+          mime = snapshotMime || '';
 
-        if (isValidImage) {
+          const isValidImage = !!(snapshot?.base64 && width && height);
+
+          if (!isValidImage) {
+            loopCnt -= 1;
+            snapshotErrCnt += 1;
+            await sleep(1000);
+            continue;
+          }
+
+          const end = Date.now();
+
           data.conversations.push({
             from: 'human',
             value: IMAGE_PLACEHOLDER,
@@ -222,7 +241,7 @@ export class GUIAgent<T extends Operator> extends BaseGUIAgent<
                 height,
               },
               mime,
-              scaleFactor: snapshot.scaleFactor,
+              scaleFactor,
             },
             timing: {
               start,
@@ -236,6 +255,8 @@ export class GUIAgent<T extends Operator> extends BaseGUIAgent<
               conversations: data.conversations.slice(-1),
             },
           });
+        } else {
+          logger.info('[GUIAgent] Screenshot skipped for operator');
         }
 
         // conversations -> messages, images
@@ -251,7 +272,7 @@ export class GUIAgent<T extends Operator> extends BaseGUIAgent<
             width,
             height,
           },
-          scaleFactor: snapshot.scaleFactor,
+          scaleFactor,
           uiTarsVersion: this.uiTarsVersion,
           headers: {
             ...remoteModelHdrs,
@@ -325,7 +346,7 @@ export class GUIAgent<T extends Operator> extends BaseGUIAgent<
 
         const predictionSummary = getSummary(prediction);
 
-        end = Date.now();
+        const end = Date.now();
         data.conversations.push({
           from: 'gpt',
           value: predictionSummary,
@@ -339,7 +360,7 @@ export class GUIAgent<T extends Operator> extends BaseGUIAgent<
               width,
               height,
             },
-            scaleFactor: snapshot.scaleFactor,
+            scaleFactor,
           },
           predictionParsed: parsedPredictions,
         });
@@ -384,7 +405,7 @@ export class GUIAgent<T extends Operator> extends BaseGUIAgent<
 
             logger.info('[GUIAgent] factors:', this.model.factors);
 
-            logger.info('[GUIAgent] scaleFactor:', snapshot.scaleFactor);
+            logger.info('[GUIAgent] scaleFactor:', scaleFactor);
 
             logger.info(
               '[GUIAgent] screenWidth:',
@@ -399,7 +420,7 @@ export class GUIAgent<T extends Operator> extends BaseGUIAgent<
                   parsedPrediction,
                   screenWidth: width,
                   screenHeight: height,
-                  scaleFactor: snapshot.scaleFactor,
+                  scaleFactor,
                   factors: this.model.factors,
                 }),
               {
@@ -456,6 +477,13 @@ export class GUIAgent<T extends Operator> extends BaseGUIAgent<
             data.status = StatusEnum.END;
             break;
           }
+        }
+
+        if (!supportsScreenshot) {
+          if (data.status === StatusEnum.RUNNING) {
+            data.status = StatusEnum.END;
+          }
+          break;
         }
 
         if (this.config.loopIntervalInMs && this.config.loopIntervalInMs > 0) {

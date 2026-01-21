@@ -17,6 +17,7 @@ import { logger } from '@main/logger';
  * computer actions. It's designed for question answering and skill-based tasks.
  */
 export class LocalAgentOperator extends Operator {
+  static SUPPORTS_SCREENSHOT = false;
   static MANUAL = {
     ACTION_SPACES: [
       `bash(command='<cmd>') # Execute whitelisted bash commands. Examples: bash(command='ls'), bash(command='ls -la'), bash(command='cat file.txt'), bash(command='grep pattern file'). Allowed: cat, ls, grep, head, tail, find, pwd, date, whoami. Forbidden: rm, mv, cp, chmod, sudo.`,

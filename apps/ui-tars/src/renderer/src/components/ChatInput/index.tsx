@@ -321,6 +321,9 @@ const ChatInput = ({
       case Operator.LocalBrowser:
         updateSetting({ ...settings, operator: Operator.LocalBrowser });
         break;
+      case Operator.LocalAgent:
+        updateSetting({ ...settings, operator: Operator.LocalAgent });
+        break;
       default:
         updateSetting({ ...settings, operator: Operator.LocalComputer });
         break;

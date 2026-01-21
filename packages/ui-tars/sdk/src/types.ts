@@ -74,11 +74,16 @@ export abstract class Operator extends BaseOperator {
     ACTION_SPACES: string[];
     EXAMPLES?: string[];
   };
+  static SUPPORTS_SCREENSHOT?: boolean;
   abstract screenshot(): Promise<ScreenshotOutput>;
   abstract execute(params: ExecuteParams): Promise<ExecuteOutput>;
 }
 
 export abstract class Model extends BaseModel<InvokeParams, InvokeOutput> {
+  /** [widthFactor, heightFactor] */
+  abstract get factors(): Factors;
+  abstract get modelName(): string;
+  abstract reset(): void;
   abstract invoke(params: InvokeParams): Promise<InvokeOutput>;
 }
 
@@ -91,9 +96,7 @@ export interface RetryConfig {
 
 export interface GUIAgentConfig<TOperator> {
   operator: TOperator;
-  model:
-    | InstanceType<typeof UITarsModel>
-    | ConstructorParameters<typeof UITarsModel>[0];
+  model: Model | ConstructorParameters<typeof UITarsModel>[0];
 
   // ===== Optional =====
   systemPrompt?: string;
@@ -120,5 +123,5 @@ export interface AgentContext<T = Operator> extends GUIAgentConfig<T> {
   logger: NonNullable<GUIAgentConfig<T>['logger']>;
   /** [widthFactor, heightFactor] */
   factors: [number, number];
-  model: InstanceType<typeof UITarsModel>;
+  model: Model;
 }
