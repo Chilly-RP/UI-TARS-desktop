@@ -139,8 +139,29 @@ export class DoubaoSeedModel extends Model {
       // Use Response API
       logger.info('[DoubaoSeed ResponseAPI] Calling with reasoning_effort:', reasoning_effort);
 
+      // Determine which messages to send based on whether we have a previous response ID
+      // When using previous_response_id, the API automatically retrieves conversation history,
+      // so we only need to send messages after the last assistant response
+      let messagesToSend = filteredMessages;
+
+      if (previousResponseId) {
+        // Find last assistant message index
+        let lastAssistantIndex = -1;
+        for (let i = filteredMessages.length - 1; i >= 0; i--) {
+          if (filteredMessages[i].role === 'assistant') {
+            lastAssistantIndex = i;
+            break;
+          }
+        }
+        messagesToSend = lastAssistantIndex > -1
+          ? filteredMessages.slice(lastAssistantIndex + 1)
+          : filteredMessages;
+
+        logger.info('[DoubaoSeed ResponseAPI] Using incremental input, sending', messagesToSend.length, 'messages');
+      }
+
       // 转换消息格式为 Response API 的 input 格式
-      const inputs = filteredMessages.map((msg): ResponseInputItem => {
+      const inputs = messagesToSend.map((msg): ResponseInputItem => {
         if (msg.role === 'user') {
           const content = Array.isArray(msg.content)
             ? msg.content
@@ -199,7 +220,7 @@ export class DoubaoSeedModel extends Model {
           body: {
             ...baseParams,
             //reasoning_effort: reasoning_effort,
-            thinking: { type: 'enabled' },
+            thinking: { type: 'disabled' },
             max_output_tokens: max_tokens,
           },
         },
