@@ -174,26 +174,36 @@ export class DoubaoSeedModel extends Model {
           ]
         : undefined;
 
-      const responseParams: ResponseCreateParamsNonStreaming = {
+      // 构建基础请求参数
+      const baseParams = {
         input: inputs,
         model,
         temperature,
         top_p,
         stream: false,
-        max_output_tokens: max_tokens,
         ...(previousResponseId && {
           previous_response_id: previousResponseId,
         }),
         ...(tools && { tools }),
-        // @ts-expect-error - reasoning_effort is a custom parameter
-        reasoning_effort,
       };
 
-      const result = await openai.responses.create(responseParams, {
-        ...options,
-        timeout: 1000 * 60,
-        headers,
-      });
+      // 火山方舟扩展参数需要通过 body 字段传递
+      // thinking 必须开启才能让 reasoning_effort 生效
+      // body 会替换整个请求体，所以需要包含所有参数
+      const result = await openai.responses.create(
+        baseParams as ResponseCreateParamsNonStreaming,
+        {
+          ...options,
+          timeout: 1000 * 60,
+          headers,
+          body: {
+            ...baseParams,
+            //reasoning_effort: reasoning_effort,
+            thinking: { type: 'enabled' },
+            max_output_tokens: max_tokens,
+          },
+        },
+      );
 
       logger.info('[DoubaoSeed ResponseAPI] Result:', result);
 

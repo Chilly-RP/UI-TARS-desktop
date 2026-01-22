@@ -89,6 +89,70 @@ export function actionParser(params: {
   };
 }
 
+/**
+ * Split action string into individual actions, respecting quotes and parentheses.
+ * This handles cases where action parameters contain newlines (e.g., finished(content='multi\n\nline'))
+ */
+function splitActionsRobust(actionStr: string): string[] {
+  const actions: string[] = [];
+  let current = '';
+  let parenDepth = 0;
+  let inQuote = false;
+  let quoteChar = '';
+
+  for (let i = 0; i < actionStr.length; i++) {
+    const char = actionStr[i];
+    const prevChar = i > 0 ? actionStr[i - 1] : '';
+
+    // Handle escaped characters - don't change quote state
+    if (prevChar === '\\') {
+      current += char;
+      continue;
+    }
+
+    // Track quotes
+    if ((char === "'" || char === '"') && prevChar !== '\\') {
+      if (!inQuote) {
+        inQuote = true;
+        quoteChar = char;
+      } else if (char === quoteChar) {
+        inQuote = false;
+        quoteChar = '';
+      }
+    }
+
+    // Track parentheses when not in quotes
+    if (!inQuote) {
+      if (char === '(') parenDepth++;
+      else if (char === ')') parenDepth--;
+    }
+
+    // Check for \n\n separator when outside function calls (depth=0 and not in quotes)
+    if (
+      parenDepth === 0 &&
+      !inQuote &&
+      char === '\n' &&
+      i + 1 < actionStr.length &&
+      actionStr[i + 1] === '\n'
+    ) {
+      if (current.trim()) {
+        actions.push(current.trim());
+      }
+      current = '';
+      i++; // Skip the second \n
+      continue;
+    }
+
+    current += char;
+  }
+
+  if (current.trim()) {
+    actions.push(current.trim());
+  }
+
+  return actions;
+}
+
 export function parseActionVlm(
   text: string,
   factors: [number, number] = [1000, 1000],
@@ -169,8 +233,8 @@ export function parseActionVlm(
     actionStr = actionContent || '';
   }
 
-  // Parse actions
-  const allActions = actionStr.split('\n\n');
+  // Parse actions - use robust splitting that respects quotes and parentheses
+  const allActions = splitActionsRobust(actionStr);
   const actions: PredictionParsed[] = [];
 
   for (const rawStr of allActions) {
