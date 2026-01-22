@@ -281,14 +281,39 @@ export class DoubaoSeedModel extends Model {
 
     const { prediction, costTime, costTokens, responseId } = result;
 
-    // DoubaoSeed 模型主要用于对话，不需要解析操作
-    return {
-      prediction,
-      parsedPredictions: [],
-      costTime,
-      costTokens,
-      responseId,
-    };
+    // Strip markdown code blocks if present
+    let cleanPrediction = prediction;
+    const codeBlockMatch = prediction.match(/```[\s\S]*?\n([\s\S]*?)\n```/);
+    if (codeBlockMatch) {
+      cleanPrediction = codeBlockMatch[1].trim();
+    }
+
+    // Parse the response to extract structured actions
+    try {
+      const { parsed: parsedPredictions } = actionParser({
+        prediction: cleanPrediction,
+        factor: this.factors,
+        screenContext,
+        scaleFactor,
+        modelVer: uiTarsVersion,
+      });
+      return {
+        prediction: cleanPrediction,
+        parsedPredictions,
+        costTime,
+        costTokens,
+        responseId,
+      };
+    } catch (error) {
+      logger?.error('[DoubaoSeedModel] parsing error', error);
+      return {
+        prediction: cleanPrediction,
+        parsedPredictions: [],
+        costTime,
+        costTokens,
+        responseId,
+      };
+    }
   }
 }
 

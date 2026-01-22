@@ -148,9 +148,9 @@ const RunMessages = () => {
                 ) : null}
 
                 {/* 显示没有 predictionParsed 但有 value 的 gpt 消息（如预测的下一步动作） */}
-                {!predictionParsed && value && (
-                  <AssistantTextMessage text={value} />
-                )}
+                {(!predictionParsed || predictionParsed.length === 0) &&
+                  value &&
+                  !finishedStep && <AssistantTextMessage text={value} />}
               </div>
             );
           })}
