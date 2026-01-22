@@ -480,10 +480,13 @@ export class GUIAgent<T extends Operator> extends BaseGUIAgent<
         }
 
         if (!supportsScreenshot) {
-          if (data.status === StatusEnum.RUNNING) {
-            data.status = StatusEnum.END;
+          // For non-screenshot operators (like LocalAgent), only break if status is no longer RUNNING
+          // Status becomes END when finished action is executed, ERROR on failures
+          // This allows the loop to continue until the model returns 'finished'
+          if (data.status !== StatusEnum.RUNNING) {
+            break;
           }
-          break;
+          // Status is still RUNNING, continue loop to execute next action
         }
 
         if (this.config.loopIntervalInMs && this.config.loopIntervalInMs > 0) {
