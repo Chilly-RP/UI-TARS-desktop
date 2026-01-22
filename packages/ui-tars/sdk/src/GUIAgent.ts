@@ -444,10 +444,11 @@ export class GUIAgent<T extends Operator> extends BaseGUIAgent<
             }
 
             // Add tool output to conversations if available
-            if (executeOutput?.toolOutput) {
+            // Skip tool output for 'finished' action - the final result is already in the finished action content
+            if (executeOutput?.toolOutput && actionType !== INTERNAL_ACTION_SPACES_ENUM.FINISHED) {
               const toolEnd = Date.now();
               const toolMessage: Conversation = {
-                from: 'human',
+                from: 'system',
                 value: `[Tool Output] ${actionType}: ${executeOutput.toolOutput}`,
                 timing: {
                   start: toolEnd,

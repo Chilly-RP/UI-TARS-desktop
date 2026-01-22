@@ -176,8 +176,10 @@ export const convertToOpenAIMessages = ({
       }
     } else {
       // handle text message
+      // Map 'system' and 'human' messages to 'user' role for OpenAI API
+      const role = conv.from === 'gpt' ? 'assistant' : 'user';
       messages.push({
-        role: conv.from === 'human' ? 'user' : 'assistant',
+        role,
         content: conv.value,
       });
     }
