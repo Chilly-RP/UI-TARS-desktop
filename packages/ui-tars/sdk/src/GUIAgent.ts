@@ -372,7 +372,23 @@ export class GUIAgent<T extends Operator> extends BaseGUIAgent<
         });
 
         // start execute action
-        for (const parsedPrediction of parsedPredictions) {
+        // Filter out invalid predictions (empty action_type) as a safeguard
+        const validPredictions = parsedPredictions.filter((p) => p.action_type);
+
+        // If all predictions are invalid, treat as finished with raw content
+        if (validPredictions.length === 0 && parsedPredictions.length > 0) {
+          logger.warn(
+            '[GUIAgent] No valid actions parsed, treating as finished',
+          );
+          validPredictions.push({
+            reflection: null,
+            thought: prediction,
+            action_type: 'finished',
+            action_inputs: { content: prediction },
+          });
+        }
+
+        for (const parsedPrediction of validPredictions) {
           const actionType = parsedPrediction.action_type;
 
           logger.info('[GUIAgent] Action:', actionType);

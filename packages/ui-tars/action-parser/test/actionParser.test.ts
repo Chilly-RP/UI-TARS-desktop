@@ -551,10 +551,13 @@ Action：click(start_box='(100,200)')`;
       const input = 'Thought: Empty action\nAction:';
       const result = parseActionVlm(input);
 
+      // When no valid action is parsed, fallback to 'finished' with original text as content
       expect(result).toEqual([
         {
-          action_inputs: {},
-          action_type: '',
+          action_inputs: {
+            content: input,
+          },
+          action_type: 'finished',
           reflection: null,
           thought: 'Empty action',
         },

@@ -321,6 +321,25 @@ export function parseActionVlm(
     });
   }
 
+  // Fallback: If no valid actions were parsed, create a single finished action
+  // This handles cases where LLM returns non-standard format (e.g., raw code, plain text)
+  if (actions.length === 0 || actions.every((a) => !a.action_type)) {
+    console.warn(
+      '[actionParser] No valid actions parsed from text, defaulting to finished',
+    );
+
+    return [
+      {
+        reflection: reflection,
+        thought: thought || text,
+        action_type: 'finished',
+        action_inputs: {
+          content: text, // Preserve the full LLM response as content
+        },
+      },
+    ];
+  }
+
   return actions;
 }
 /**
@@ -405,7 +424,9 @@ function parseAction(actionStr: string) {
       args: kwargs,
     };
   } catch (e) {
-    console.error(`Failed to parse action '${actionStr}': ${e}`);
+    // Parsing failures are expected for non-standard input (e.g., raw code, plain text)
+    // Use debug level to reduce log spam
+    // console.debug(`Failed to parse action '${actionStr}': ${e}`);
     return null;
   }
 }
