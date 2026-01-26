@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import { useState } from 'react';
-import { AlertCircle, Camera, ChevronDown, Loader2 } from 'lucide-react';
+import { AlertCircle, Camera, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import { ErrorStatusEnum } from '@ui-tars/shared/types';
 
 import { Button } from '@renderer/components/ui/button';
@@ -12,6 +12,12 @@ import {
   AlertDescription,
   AlertTitle,
 } from '@renderer/components/ui/alert';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@renderer/components/ui/collapsible';
+import { cn } from '@renderer/utils';
 import { Markdown } from '../markdown';
 
 export const HumanTextMessage = ({ text }: { text: string }) => {
@@ -116,5 +122,50 @@ export const LoadingText = ({ text }: { text: string }) => {
         {text}
       </div>
     </div>
+  );
+};
+
+interface ToolOutputMessageProps {
+  text: string;
+}
+
+export const ToolOutputMessage = ({ text }: ToolOutputMessageProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Parse the tool output format: "[Tool Output] actionType: output"
+  const parseToolOutput = (rawText: string) => {
+    const match = rawText.match(/^\[Tool Output\]\s*(\w+):\s*([\s\S]*)$/);
+    if (match) {
+      return {
+        actionType: match[1],
+        output: match[2],
+      };
+    }
+    return {
+      actionType: 'unknown',
+      output: rawText,
+    };
+  };
+
+  const { actionType, output } = parseToolOutput(text);
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="my-2">
+      <CollapsibleTrigger className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 cursor-pointer">
+        <ChevronRight
+          className={cn(
+            'h-3 w-3 transition-transform duration-200',
+            isOpen && 'rotate-90',
+          )}
+        />
+        <span className="font-medium">Tool Output</span>
+        <span className="text-gray-400">({actionType})</span>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pl-4 mt-1">
+        <pre className="text-xs text-gray-600 whitespace-pre-wrap font-mono bg-gray-50 p-2 rounded border border-gray-100 max-h-48 overflow-y-auto">
+          {output}
+        </pre>
+      </CollapsibleContent>
+    </Collapsible>
   );
 };

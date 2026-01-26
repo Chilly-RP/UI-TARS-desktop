@@ -27,6 +27,7 @@ import {
   AssistantTextMessage,
   ScreenshotMessage,
   LoadingText,
+  ToolOutputMessage,
 } from './Messages';
 
 const RunMessages = () => {
@@ -95,6 +96,19 @@ const RunMessages = () => {
           )}
 
           {chatMessages?.map((message, idx) => {
+            // Handle tool output messages - require system origin and tool output prefix
+            const isToolOutput =
+              message?.from === 'system' &&
+              message?.value?.startsWith('[Tool Output]');
+            if (isToolOutput) {
+              return (
+                <ToolOutputMessage
+                  key={`message-${idx}`}
+                  text={message?.value}
+                />
+              );
+            }
+
             if (message?.from === 'human') {
               if (message?.value === IMAGE_PLACEHOLDER) {
                 // screen shot

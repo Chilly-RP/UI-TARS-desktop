@@ -26,6 +26,7 @@ import {
   HumanTextMessage,
   LoadingText,
   ScreenshotMessage,
+  ToolOutputMessage,
 } from '../../components/RunMessages/Messages';
 import ThoughtChain from '../../components/ThoughtChain';
 import { api } from '../../api';
@@ -295,6 +296,18 @@ const LocalOperator = () => {
             )}
 
           {chatMessages?.map((message, idx) => {
+            const isToolOutput =
+              message?.from === 'system' &&
+              message?.value?.startsWith('[Tool Output]');
+            if (isToolOutput) {
+              return (
+                <ToolOutputMessage
+                  key={`message-${idx}`}
+                  text={message?.value}
+                />
+              );
+            }
+
             if (message?.from === 'human') {
               if (message?.value === IMAGE_PLACEHOLDER) {
                 // screen shot

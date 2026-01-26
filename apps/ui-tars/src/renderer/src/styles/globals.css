@@ -140,3 +140,31 @@ button {
 body {
   background-color: transparent !important;
 }
+
+@keyframes collapsible-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-collapsible-content-height);
+  }
+}
+
+@keyframes collapsible-up {
+  from {
+    height: var(--radix-collapsible-content-height);
+  }
+  to {
+    height: 0;
+  }
+}
+
+@layer utilities {
+  .animate-collapsible-down {
+    animation: collapsible-down 150ms ease-out;
+  }
+
+  .animate-collapsible-up {
+    animation: collapsible-up 150ms ease-out;
+  }
+}
