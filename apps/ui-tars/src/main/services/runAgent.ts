@@ -143,7 +143,6 @@ const createGUIAgent = (
   const handleData = async ({ data, isStreamingUpdate }: { data: GUIAgentData; isStreamingUpdate?: boolean }) => {
     const lastConv = stateManager.getLastMessage();
     const { status, conversations, ...restUserData } = data;
-    logger.info('[onGUIAgentData] status', status, 'conversations:', conversations.length, 'isStreamingUpdate:', isStreamingUpdate);
 
     // For streaming updates, we update the last message instead of appending
     if (isStreamingUpdate && conversations.length > 0) {
