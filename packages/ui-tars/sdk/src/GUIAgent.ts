@@ -280,6 +280,42 @@ export class GUIAgent<T extends Operator> extends BaseGUIAgent<
           },
           previousResponseId,
           preprocessPngQuality: this.config.preprocessPngQuality,
+          // Streaming callback - sends updates to frontend during streaming
+          onStreamChunk: (chunk) => {
+            if (!chunk.isComplete && chunk.text) {
+              // Create a temporary streaming conversation for real-time display
+              const streamingConversation: Conversation = {
+                from: 'gpt',
+                value: chunk.text,
+                timing: {
+                  start,
+                  end: Date.now(),
+                  cost: Date.now() - start,
+                },
+                screenshotContext: {
+                  size: { width, height },
+                  scaleFactor,
+                },
+                // Show streaming content as thought (action will be parsed after completion)
+                predictionParsed: [{
+                  reflection: null,
+                  thought: chunk.text,
+                  action_type: '',  // Empty indicates streaming in progress
+                  action_inputs: {},
+                }],
+                isStreaming: true,
+              };
+
+              // Send streaming update to frontend
+              onData?.({
+                data: {
+                  ...data,
+                  conversations: [streamingConversation],
+                },
+                isStreamingUpdate: true,
+              });
+            }
+          },
         };
         const {
           prediction,

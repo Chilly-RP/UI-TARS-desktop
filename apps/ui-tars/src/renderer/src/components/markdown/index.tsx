@@ -90,7 +90,7 @@ export const Markdown = memo(({ children }: { children: string }) => {
           return <code className={className}>{children}</code>;
         },
         pre: ({ children }) => (
-          <pre className="bg-gray-900 text-gray-100 rounded-lg p-4 mb-4 overflow-x-auto max-w-full">
+          <pre className="bg-transparent text-gray-700 rounded-lg p-4 mb-4 overflow-x-auto max-w-full border border-gray-200">
             <code className="text-sm font-mono leading-relaxed whitespace-pre-wrap break-words">
               {children}
             </code>

@@ -6,7 +6,8 @@ import assert from 'assert';
 
 import { logger } from '@main/logger';
 import { type ConversationWithSoM } from '@main/shared/types';
-import { GUIAgent, type GUIAgentConfig } from '@ui-tars/sdk';
+import { GUIAgent } from '@ui-tars/sdk';
+import { GUIAgentData } from '@ui-tars/shared/types';
 import { markClickPosition } from '@main/utils/image';
 import { UTIOService } from '@main/services/utio';
 import { SettingStore } from '@main/store/setting';
@@ -139,10 +140,39 @@ const createGUIAgent = (
   abortController: AbortController | null,
   settings: any,
 ): GUIAgent<any> => {
-  const handleData: GUIAgentConfig<any>['onData'] = async ({ data }) => {
+  const handleData = async ({ data, isStreamingUpdate }: { data: GUIAgentData; isStreamingUpdate?: boolean }) => {
     const lastConv = stateManager.getLastMessage();
     const { status, conversations, ...restUserData } = data;
-    logger.info('[onGUIAgentData] status', status, conversations.length);
+    logger.info('[onGUIAgentData] status', status, 'conversations:', conversations.length, 'isStreamingUpdate:', isStreamingUpdate);
+
+    // For streaming updates, we update the last message instead of appending
+    if (isStreamingUpdate && conversations.length > 0) {
+      const streamingConv = conversations[0];
+      const currentMessages = stateManager.getCurrentState().messages || [];
+
+      // Find and replace the last streaming message, or append if none exists
+      const lastMsgIndex = currentMessages.length - 1;
+      const lastMsg = currentMessages[lastMsgIndex];
+
+      let updatedMessages: ConversationWithSoM[];
+      if (lastMsg && lastMsg.isStreaming) {
+        // Replace the last streaming message
+        updatedMessages = [
+          ...currentMessages.slice(0, lastMsgIndex),
+          { ...streamingConv },
+        ];
+      } else {
+        // Append new streaming message
+        updatedMessages = [...currentMessages, { ...streamingConv }];
+      }
+
+      stateManager.updateState({
+        status,
+        restUserData,
+        messages: updatedMessages,
+      });
+      return;
+    }
 
     // add SoM to conversations
     const conversationsWithSoM: ConversationWithSoM[] = await Promise.all(
@@ -189,11 +219,19 @@ const createGUIAgent = (
       '\n========',
     );
 
+    // For non-streaming updates, first remove any trailing streaming message
+    // then append the final parsed message
+    const currentMessages = stateManager.getCurrentState().messages || [];
+    const lastMsg = currentMessages[currentMessages.length - 1];
+    const messagesWithoutStreaming = lastMsg?.isStreaming
+      ? currentMessages.slice(0, -1)
+      : currentMessages;
+
     stateManager.updateState({
       status,
       restUserData,
       messages: [
-        ...(stateManager.getCurrentState().messages || []),
+        ...messagesWithoutStreaming,
         ...conversationsWithSoM,
       ],
     });

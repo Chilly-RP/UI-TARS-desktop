@@ -11,7 +11,7 @@ import {
 import { actionParser } from '@ui-tars/action-parser';
 
 import { useContext } from './context/useContext';
-import { Model, type InvokeParams, type InvokeOutput } from './types';
+import { Model, type InvokeParams, type InvokeOutput, type OnStreamChunk } from './types';
 
 import {
   preprocessResizeImage,
@@ -55,6 +55,8 @@ export interface DoubaoSeedModelConfig extends OpenAIChatCompletionCreateParams 
   reasoning_effort?: 'minimal' | 'low' | 'medium' | 'high';
   /** Enable web search for response API */
   enableWebSearch?: boolean;
+  /** Enable streaming output for Response API (default: true when useResponsesApi is true) */
+  enableStreaming?: boolean;
 }
 
 export class DoubaoSeedModel extends Model {
@@ -95,6 +97,7 @@ export class DoubaoSeedModel extends Model {
       signal?: AbortSignal;
     },
     headers?: Record<string, string>,
+    onStreamChunk?: OnStreamChunk,
   ): Promise<{
     prediction: string;
     costTime?: number;
@@ -112,6 +115,7 @@ export class DoubaoSeedModel extends Model {
       top_p = 0.7,
       reasoning_effort = 'low',
       enableWebSearch = false,
+      enableStreaming = true,
       ...restOptions
     } = this.modelConfig;
 
@@ -196,12 +200,13 @@ export class DoubaoSeedModel extends Model {
         : undefined;
 
       // 构建基础请求参数
+      const useStream = enableStreaming && !!onStreamChunk;
       const baseParams = {
         input: inputs,
         model,
         temperature,
         top_p,
-        stream: false,
+        stream: useStream,
         ...(previousResponseId && {
           previous_response_id: previousResponseId,
         }),
@@ -211,29 +216,101 @@ export class DoubaoSeedModel extends Model {
       // 火山方舟扩展参数需要通过 body 字段传递
       // thinking 必须开启才能让 reasoning_effort 生效
       // body 会替换整个请求体，所以需要包含所有参数
-      const result = await openai.responses.create(
-        baseParams as ResponseCreateParamsNonStreaming,
-        {
-          ...options,
-          timeout: 1000 * 60,
-          headers,
-          body: {
-            ...baseParams,
-            //reasoning_effort: reasoning_effort,
-            thinking: { type: 'disabled' },
-            max_output_tokens: max_tokens,
+
+      if (useStream) {
+        // Streaming mode
+        logger.info('[DoubaoSeed ResponseAPI] Using streaming mode');
+
+        const response = await openai.responses.create(
+          { ...baseParams, stream: true } as any,
+          {
+            ...options,
+            timeout: 1000 * 60 * 5, // Longer timeout for streaming
+            headers,
+            body: {
+              ...baseParams,
+              stream: true,
+              thinking: { type: 'disabled' },
+              max_output_tokens: max_tokens,
+            },
           },
-        },
-      );
+        );
 
-      logger.info('[DoubaoSeed ResponseAPI] Result:', result);
+        let accumulatedText = '';
+        let totalTokens = 0;
+        let responseId = '';
 
-      return {
-        prediction: result?.output_text ?? '',
-        costTime: Date.now() - startTime,
-        costTokens: result?.usage?.total_tokens ?? 0,
-        responseId: result?.id,
-      };
+        // Process streaming events
+        for await (const event of response as unknown as AsyncIterable<any>) {
+          // Debug: log event details to diagnose streaming issues
+          // logger.info('[DoubaoSeed ResponseAPI] Event received:', JSON.stringify({
+          //   type: event.type,
+          //   keys: Object.keys(event),
+          //   delta: event.delta,
+          //   data: event.data,
+          //   text: event.text,
+          // }));
+
+          // Handle output text delta - this is the main content we want to show
+          if (event.type === 'response.output_text.delta') {
+            accumulatedText += event.delta;
+            onStreamChunk({
+              text: accumulatedText,
+              delta: event.delta,
+              isComplete: false,
+            });
+          }
+
+          // Handle completion event to get usage info
+          if (event.type === 'response.completed') {
+            totalTokens = event.response?.usage?.total_tokens ?? 0;
+            responseId = event.response?.id ?? '';
+            logger.info('[DoubaoSeed ResponseAPI] Stream completed, tokens:', totalTokens);
+            //logger.info('[DoubaoSeed ResponseAPI] Completed event response:', JSON.stringify(event.response));
+          }
+        }
+
+        // Send final completion notification
+        onStreamChunk({
+          text: accumulatedText,
+          delta: '',
+          isComplete: true,
+        });
+
+        logger.info('[DoubaoSeed ResponseAPI] Streaming finished, text length:', accumulatedText.length);
+
+        return {
+          prediction: accumulatedText,
+          costTime: Date.now() - startTime,
+          costTokens: totalTokens,
+          responseId,
+        };
+      } else {
+        // Non-streaming mode (original behavior)
+        const result = await openai.responses.create(
+          baseParams as ResponseCreateParamsNonStreaming,
+          {
+            ...options,
+            timeout: 1000 * 60,
+            headers,
+            body: {
+              ...baseParams,
+              //reasoning_effort: reasoning_effort,
+              thinking: { type: 'disabled' },
+              max_output_tokens: max_tokens,
+            },
+          },
+        );
+
+        logger.info('[DoubaoSeed ResponseAPI] Result:', result);
+
+        return {
+          prediction: result?.output_text ?? '',
+          costTime: Date.now() - startTime,
+          costTokens: result?.usage?.total_tokens ?? 0,
+          responseId: result?.id,
+        };
+      }
     } else {
       // Use Chat Completions API
       logger.info('[DoubaoSeed ChatAPI] Calling with reasoning_effort:', reasoning_effort);
@@ -262,7 +339,7 @@ export class DoubaoSeedModel extends Model {
     }
   }
 
-  async invoke(params: InvokeParams): Promise<InvokeOutput> {
+  async invoke(params: InvokeParams & { onStreamChunk?: OnStreamChunk }): Promise<InvokeOutput> {
     const {
       conversations,
       screenContext,
@@ -270,11 +347,12 @@ export class DoubaoSeedModel extends Model {
       uiTarsVersion,
       headers,
       previousResponseId,
+      onStreamChunk,
     } = params;
     const { logger, signal } = useContext();
 
     logger?.info(
-      `[DoubaoSeedModel] invoke: screenContext=${JSON.stringify(screenContext)}, scaleFactor=${scaleFactor}, uiTarsVersion=${uiTarsVersion}, useResponsesApi=${this.modelConfig.useResponsesApi}, reasoning_effort=${this.modelConfig.reasoning_effort}`,
+      `[DoubaoSeedModel] invoke: screenContext=${JSON.stringify(screenContext)}, scaleFactor=${scaleFactor}, uiTarsVersion=${uiTarsVersion}, useResponsesApi=${this.modelConfig.useResponsesApi}, reasoning_effort=${this.modelConfig.reasoning_effort}, streaming=${!!onStreamChunk}`,
     );
 
     // 不传图片，只使用对话内容
@@ -293,6 +371,7 @@ export class DoubaoSeedModel extends Model {
         signal,
       },
       headers,
+      onStreamChunk,
     )
       .catch((e) => {
         logger?.error('[DoubaoSeedModel] error', e);

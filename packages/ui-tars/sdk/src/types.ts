@@ -37,6 +37,19 @@ export interface ExecuteOutput {
 
 export interface ScreenshotOutput extends ScreenshotResult {}
 
+/** Streaming chunk data */
+export interface StreamChunk {
+  /** Accumulated text so far */
+  text: string;
+  /** Incremental text for this chunk */
+  delta: string;
+  /** Whether streaming is complete */
+  isComplete: boolean;
+}
+
+/** Callback for streaming chunks */
+export type OnStreamChunk = (chunk: StreamChunk) => void;
+
 export interface InvokeParams {
   conversations: Message[];
   images: string[];
@@ -57,6 +70,8 @@ export interface InvokeParams {
   previousResponseId?: string;
   /** PNG quality for image preprocessing (1-100), @default 60 */
   preprocessPngQuality?: number;
+  /** Callback for streaming output chunks */
+  onStreamChunk?: OnStreamChunk;
 }
 
 export interface InvokeOutput {
@@ -94,6 +109,13 @@ export interface RetryConfig {
   onRetry?: (error: Error, attempt: number) => void;
 }
 
+/** Parameters for onData callback */
+export interface OnDataParams {
+  data: GUIAgentData;
+  /** Whether this is a streaming update (should replace last message instead of appending) */
+  isStreamingUpdate?: boolean;
+}
+
 export interface GUIAgentConfig<TOperator> {
   operator: TOperator;
   model: Model | ConstructorParameters<typeof UITarsModel>[0];
@@ -101,7 +123,7 @@ export interface GUIAgentConfig<TOperator> {
   // ===== Optional =====
   systemPrompt?: string;
   signal?: AbortSignal;
-  onData?: (params: { data: GUIAgentData }) => void;
+  onData?: (params: OnDataParams) => void;
   onError?: (params: { data: GUIAgentData; error: GUIAgentError }) => void;
   logger?: Logger;
   retry?: {

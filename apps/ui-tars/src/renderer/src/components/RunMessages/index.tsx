@@ -2,7 +2,7 @@
  * Copyright (c) 2025 Bytedance, Inc. and its affiliates.
  * SPDX-License-Identifier: Apache-2.0
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@renderer/utils';
 import { Button } from '@renderer/components/ui/button';
@@ -40,25 +40,83 @@ const RunMessages = () => {
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(!isWelcome);
 
   // console.log('currentSessionId', currentSessionId);
-  useEffect(() => {
-    // console.log('useEffect updateMessages', currentSessionId, messages);
-    if (currentSessionId && messages.length) {
-      const existingMessagesSet = new Set(
-        chatMessages.map(
-          (msg) => `${msg.value}-${msg.from}-${msg.timing?.start}`,
-        ),
-      );
-      const newMessages = messages.filter(
-        (msg) =>
-          !existingMessagesSet.has(
-            `${msg.value}-${msg.from}-${msg.timing?.start}`,
-          ),
-      );
-      const allMessages = [...chatMessages, ...newMessages];
+  const lastMessage = messages[messages.length - 1];
+  const lastMessageKey = lastMessage
+    ? `${lastMessage.value}-${lastMessage.from}-${lastMessage.timing?.start}-${lastMessage.isStreaming ? 'streaming' : 'final'}`
+    : '';
 
-      updateMessages(currentSessionId, allMessages);
+  useEffect(() => {
+    if (!currentSessionId || !messages.length || lastMessage?.isStreaming) {
+      return;
     }
-  }, [currentSessionId, chatMessages.length, messages.length]);
+
+    const existingMessagesSet = new Set(
+      chatMessages.map(
+        (msg) => `${msg.value}-${msg.from}-${msg.timing?.start}`,
+      ),
+    );
+    const newMessages = messages.filter(
+      (msg) =>
+        !existingMessagesSet.has(
+          `${msg.value}-${msg.from}-${msg.timing?.start}`,
+        ),
+    );
+
+    if (!newMessages.length) {
+      const lastChatMessage = chatMessages[chatMessages.length - 1];
+      if (lastChatMessage?.isStreaming) {
+        updateMessages(currentSessionId, [
+          ...chatMessages.slice(0, -1),
+          lastMessage,
+        ]);
+      }
+      return;
+    }
+
+    const baseMessages = chatMessages[chatMessages.length - 1]?.isStreaming
+      ? chatMessages.slice(0, -1)
+      : chatMessages;
+    updateMessages(currentSessionId, [...baseMessages, ...newMessages]);
+  }, [
+    currentSessionId,
+    chatMessages.length,
+    messages.length,
+    lastMessageKey,
+  ]);
+
+  const displayMessages = useMemo(() => {
+    if (!lastMessage) {
+      return chatMessages;
+    }
+    if (!chatMessages.length) {
+      return messages;
+    }
+
+    const lastChatMessage = chatMessages[chatMessages.length - 1];
+    const lastChatKey = lastChatMessage
+      ? `${lastChatMessage.value}-${lastChatMessage.from}-${lastChatMessage.timing?.start}`
+      : '';
+    const lastMessageKey = `${lastMessage.value}-${lastMessage.from}-${lastMessage.timing?.start}`;
+
+    if (lastMessage.isStreaming) {
+      const shouldReplace =
+        lastChatMessage?.isStreaming ||
+        (lastChatMessage?.timing?.start === lastMessage?.timing?.start &&
+          lastMessage?.timing?.start !== undefined);
+      return shouldReplace
+        ? [...chatMessages.slice(0, -1), lastMessage]
+        : [...chatMessages, lastMessage];
+    }
+
+    if (lastChatMessage?.isStreaming || lastChatKey !== lastMessageKey) {
+      const baseMessages = lastChatMessage?.isStreaming
+        ? chatMessages.slice(0, -1)
+        : chatMessages;
+      return [...baseMessages, lastMessage];
+    }
+
+    return chatMessages;
+  }, [chatMessages, lastMessage, messages]);
 
   useEffect(() => {
     if (!currentSessionId.length) {
@@ -91,11 +149,11 @@ const RunMessages = () => {
     return (
       <div className="flex-1 w-full px-12 py-0 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400">
         <div ref={containerRef}>
-          {!chatMessages?.length && suggestions?.length > 0 && (
+          {!displayMessages?.length && suggestions?.length > 0 && (
             <Prompts suggestions={suggestions} onSelect={handleSelect} />
           )}
 
-          {chatMessages?.map((message, idx) => {
+          {displayMessages?.map((message, idx) => {
             // Handle tool output messages - require system origin and tool output prefix
             const isToolOutput =
               message?.from === 'system' &&
@@ -133,6 +191,8 @@ const RunMessages = () => {
               screenshotBase64WithElementMarker,
               value,
             } = message;
+            // Cast to access isStreaming which is defined in base Conversation type
+            const isStreaming = (message as { isStreaming?: boolean }).isStreaming;
 
             // Find the finished step
             const finishedStep = predictionParsed?.find(
@@ -152,6 +212,7 @@ const RunMessages = () => {
                     steps={predictionParsed}
                     hasSomImage={!!screenshotBase64WithElementMarker}
                     onClick={() => handleImageSelect(idx)}
+                    isStreaming={isStreaming}
                   />
                 ) : null}
 
@@ -216,7 +277,7 @@ const RunMessages = () => {
             : 'w-0 opacity-0 overflow-hidden',
         )}
       >
-        <ImageGallery messages={chatMessages} selectImgIndex={selectImg} />
+        <ImageGallery messages={displayMessages} selectImgIndex={selectImg} />
       </div>
     </div>
   );

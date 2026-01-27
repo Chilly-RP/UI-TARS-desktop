@@ -26,6 +26,8 @@ export interface Conversation extends Message {
     scaleFactor?: number;
   };
   predictionParsed?: PredictionParsed[];
+  /** Whether this message is currently streaming (real-time update in progress) */
+  isStreaming?: boolean;
 }
 
 /**

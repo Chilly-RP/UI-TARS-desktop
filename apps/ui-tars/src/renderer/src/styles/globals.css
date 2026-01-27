@@ -168,3 +168,14 @@ body {
     animation: collapsible-up 150ms ease-out;
   }
 }
+
+/* Streaming cursor - static indicator */
+.streaming-cursor {
+  font-weight: bold;
+  color: oklch(0.546 0.245 262.881); /* blue-500 equivalent */
+  margin-left: 2px;
+}
+
+.dark .streaming-cursor {
+  color: oklch(0.623 0.214 259.815); /* blue-400 for dark mode */
+}

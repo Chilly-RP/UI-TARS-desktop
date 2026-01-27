@@ -1,6 +1,6 @@
 import { MessageCirclePlus } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Card } from '@renderer/components/ui/card';
 import {
@@ -99,6 +99,11 @@ const LocalOperator = () => {
     setOpen(false);
   }, [state.sessionId]);
 
+  const lastMessage = messages[messages.length - 1];
+  const lastMessageKey = lastMessage
+    ? `${lastMessage.value}-${lastMessage.from}-${lastMessage.timing?.start}-${lastMessage.isStreaming ? 'streaming' : 'final'}`
+    : '';
+
   useEffect(() => {
     if (initId !== state.sessionId) {
       return;
@@ -112,29 +117,79 @@ const LocalOperator = () => {
       return;
     }
 
-    if (messages.length) {
-      const existingMessagesSet = new Set(
-        chatMessages.map(
-          (msg) => `${msg.value}-${msg.from}-${msg.timing?.start}`,
-        ),
-      );
-      const newMessages = messages.filter(
-        (msg) =>
-          !existingMessagesSet.has(
-            `${msg.value}-${msg.from}-${msg.timing?.start}`,
-          ),
-      );
-      const allMessages = [...chatMessages, ...newMessages];
-
-      updateMessages(state.sessionId, allMessages);
+    if (!messages.length || lastMessage?.isStreaming) {
+      return;
     }
+
+    const existingMessagesSet = new Set(
+      chatMessages.map(
+        (msg) => `${msg.value}-${msg.from}-${msg.timing?.start}`,
+      ),
+    );
+    const newMessages = messages.filter(
+      (msg) =>
+        !existingMessagesSet.has(
+          `${msg.value}-${msg.from}-${msg.timing?.start}`,
+        ),
+    );
+
+    if (!newMessages.length) {
+      const lastChatMessage = chatMessages[chatMessages.length - 1];
+      if (lastChatMessage?.isStreaming && lastMessage) {
+        updateMessages(state.sessionId, [
+          ...chatMessages.slice(0, -1),
+          lastMessage,
+        ]);
+      }
+      return;
+    }
+
+    const baseMessages = chatMessages[chatMessages.length - 1]?.isStreaming
+      ? chatMessages.slice(0, -1)
+      : chatMessages;
+    updateMessages(state.sessionId, [...baseMessages, ...newMessages]);
   }, [
     initId,
     state.sessionId,
     currentSessionId,
     chatMessages.length,
     messages.length,
+    lastMessageKey,
   ]);
+
+  const displayMessages = useMemo(() => {
+    if (!lastMessage) {
+      return chatMessages;
+    }
+    if (!chatMessages.length) {
+      return messages;
+    }
+
+    const lastChatMessage = chatMessages[chatMessages.length - 1];
+    const lastChatKey = lastChatMessage
+      ? `${lastChatMessage.value}-${lastChatMessage.from}-${lastChatMessage.timing?.start}`
+      : '';
+    const lastMessageKey = `${lastMessage.value}-${lastMessage.from}-${lastMessage.timing?.start}`;
+
+    if (lastMessage.isStreaming) {
+      const shouldReplace =
+        lastChatMessage?.isStreaming ||
+        (lastChatMessage?.timing?.start === lastMessage?.timing?.start &&
+          lastMessage?.timing?.start !== undefined);
+      return shouldReplace
+        ? [...chatMessages.slice(0, -1), lastMessage]
+        : [...chatMessages, lastMessage];
+    }
+
+    if (lastChatMessage?.isStreaming || lastChatKey !== lastMessageKey) {
+      const baseMessages = lastChatMessage?.isStreaming
+        ? chatMessages.slice(0, -1)
+        : chatMessages;
+      return [...baseMessages, lastMessage];
+    }
+
+    return chatMessages;
+  }, [chatMessages, lastMessage, messages]);
 
   useEffect(() => {
     setTimeout(() => {
@@ -144,10 +199,10 @@ const LocalOperator = () => {
 
   // Reset suggestions when there are new chat messages
   useEffect(() => {
-    if (chatMessages?.length > 0) {
+    if (displayMessages?.length > 0) {
       setShowSuggestions(false);
     }
-  }, [chatMessages]);
+  }, [displayMessages]);
 
   const { run } = useRunAgent();
   const { getSession, updateSession } = useSession();
@@ -289,13 +344,13 @@ const LocalOperator = () => {
     return (
       <ScrollArea className="h-full px-4">
         <div ref={containerRef}>
-          {!chatMessages?.length &&
+          {!displayMessages?.length &&
             suggestions?.length > 0 &&
             showSuggestions && (
               <Prompts suggestions={suggestions} onSelect={handleSelect} />
             )}
 
-          {chatMessages?.map((message, idx) => {
+          {displayMessages?.map((message, idx) => {
             const isToolOutput =
               message?.from === 'system' &&
               message?.value?.startsWith('[Tool Output]');
@@ -445,7 +500,7 @@ const LocalOperator = () => {
                 </div>
               ) : (
                 <ImageGallery
-                  messages={chatMessages}
+                  messages={displayMessages}
                   selectImgIndex={selectImg}
                 />
               )}

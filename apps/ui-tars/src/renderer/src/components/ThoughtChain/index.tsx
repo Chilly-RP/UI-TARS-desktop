@@ -56,12 +56,15 @@ interface ThoughtChainProps {
   hasSomImage: boolean;
   somImageHighlighted?: boolean;
   onClick?: () => void;
+  /** Whether this message is currently streaming */
+  isStreaming?: boolean;
 }
 
 export default function ThoughtChain({
   steps,
   onClick,
   hasSomImage,
+  isStreaming,
 }: ThoughtChainProps) {
   const reflectionStep = steps?.find((step) => step.reflection);
   const thoughtStep = steps?.find((step) => step.thought);
@@ -77,10 +80,15 @@ export default function ThoughtChain({
       {thoughtStep?.thought && (
         <div className="my-3 text-gray-600">
           <Markdown>{thoughtStep.thought || ''}</Markdown>
+          {/* Blinking cursor during streaming */}
+          {isStreaming && (
+            <span className="streaming-cursor">|</span>
+          )}
         </div>
       )}
 
-      {steps?.map?.((step, index) => (
+      {/* Only show action buttons when not streaming (action is parsed after completion) */}
+      {!isStreaming && steps?.map?.((step, index) => (
         <ThoughtStepCard
           key={index}
           step={step}
