@@ -167,6 +167,7 @@ export function parseActionVlm(
   let reflection: string | null = null;
   let thought: string | null = null;
   let actionStr = '';
+  let hasActionKeyword = false;
 
   let smartResizeFactors: [number, number] | null = null;
   if (
@@ -212,6 +213,7 @@ export function parseActionVlm(
       //   throw new Error('No Action found in text');
       actionStr = text;
     } else {
+      hasActionKeyword = true;
       const actionParts = text.split(/Action[:：]/);
       actionStr = actionParts[actionParts.length - 1];
     }
@@ -231,6 +233,7 @@ export function parseActionVlm(
 
     thought = `${thoughtContent}\n<Action_Summary>\n${actionSummaryContent}`;
     actionStr = actionContent || '';
+    hasActionKeyword = Boolean(actionContent);
   }
 
   // Parse actions - use robust splitting that respects quotes and parentheses
@@ -328,13 +331,16 @@ export function parseActionVlm(
       '[actionParser] No valid actions parsed from text, defaulting to finished',
     );
 
+    const fallbackContent =
+      hasActionKeyword && actionStr.trim() ? actionStr.trim() : text;
+
     return [
       {
         reflection: reflection,
         thought: thought || text,
         action_type: 'finished',
         action_inputs: {
-          content: text, // Preserve the full LLM response as content
+          content: fallbackContent, // Preserve the full LLM response as content
         },
       },
     ];

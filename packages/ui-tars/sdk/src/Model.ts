@@ -266,7 +266,7 @@ export class DoubaoSeedModel extends Model {
             totalTokens = event.response?.usage?.total_tokens ?? 0;
             responseId = event.response?.id ?? '';
             logger.info('[DoubaoSeed ResponseAPI] Stream completed, tokens:', totalTokens);
-            //logger.info('[DoubaoSeed ResponseAPI] Completed event response:', JSON.stringify(event.response));
+            logger.info('[DoubaoSeed ResponseAPI] Completed event response:', JSON.stringify(event.response));
           }
         }
 
