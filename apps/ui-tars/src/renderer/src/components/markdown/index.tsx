@@ -2,9 +2,16 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { memo } from 'react';
 
-export const Markdown = memo(({ children }: { children: string }) => {
-  return (
-    <ReactMarkdown
+export const Markdown = memo(
+  ({
+    children,
+    tableScrollable = true,
+  }: {
+    children: string;
+    tableScrollable?: boolean;
+  }) => {
+    return (
+      <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       components={{
         h1: ({ children }) => (
@@ -98,8 +105,12 @@ export const Markdown = memo(({ children }: { children: string }) => {
         ),
         // Table support
         table: ({ children }) => (
-          <div className="overflow-x-auto mb-4">
-            <table className="min-w-full border-collapse border border-gray-200 rounded-lg overflow-hidden">
+          <div className={tableScrollable ? 'overflow-x-auto mb-4' : 'mb-4'}>
+            <table
+              className={`min-w-full border-collapse border border-gray-200 rounded-lg overflow-hidden ${
+                tableScrollable ? '' : '!w-max'
+              }`}
+            >
               {children}
             </table>
           </div>
@@ -134,6 +145,6 @@ export const Markdown = memo(({ children }: { children: string }) => {
       }}
     >
       {children}
-    </ReactMarkdown>
-  );
+      </ReactMarkdown>
+    );
 });

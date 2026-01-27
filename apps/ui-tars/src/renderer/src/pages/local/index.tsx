@@ -468,7 +468,7 @@ const LocalOperator = () => {
         docUrl="https://github.com/bytedance/UI-TARS-desktop/"
       ></NavHeader>
       <div className="px-5 pb-5 flex flex-1 gap-5">
-        <Card className="flex-1 basis-3/6 px-0 py-4 gap-4 h-[calc(100vh-76px)]">
+        <Card className="flex-1 basis-2/5 min-w-0 px-0 py-4 gap-4 h-[calc(100vh-76px)]">
           <div className="flex items-center justify-between w-full px-4">
             <SidebarTrigger
               variant="secondary"
@@ -487,7 +487,7 @@ const LocalOperator = () => {
             checkBeforeRun={checkVLM}
           />
         </Card>
-        <Card className="flex-1 basis-3/6 p-3 h-[calc(100vh-76px)]">
+        <Card className="flex-1 basis-3/5  min-w-0 p-3 h-[calc(100vh-76px)]">
           <Tabs defaultValue="screenshot" className="h-full flex flex-col">
             <TabsList>
               <TabsTrigger value="screenshot">屏幕截图</TabsTrigger>

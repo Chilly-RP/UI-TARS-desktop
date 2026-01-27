@@ -65,7 +65,11 @@ const FileViewer: React.FC<FileViewerProps> = ({
 
   return (
     <div className="h-full w-full min-h-0">
-      <ScrollArea className="h-full w-full">
+      <ScrollArea
+        key={file.fullPath}
+        className="h-full w-full"
+        scrollbars="both"
+      >
         <div className="p-4">
           {isHtml ? (
             <div
@@ -74,7 +78,7 @@ const FileViewer: React.FC<FileViewerProps> = ({
             />
           ) : isMarkdown ? (
             <div className="prose prose-sm w-full max-w-full dark:prose-invert break-words overflow-wrap-anywhere">
-              <Markdown>{content}</Markdown>
+              <Markdown tableScrollable={false}>{content}</Markdown>
             </div>
           ) : (
             <pre className="text-sm font-mono whitespace-pre-wrap break-words text-gray-700 dark:text-gray-300 leading-relaxed overflow-auto">
