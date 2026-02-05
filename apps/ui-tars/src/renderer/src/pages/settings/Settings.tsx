@@ -13,6 +13,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useRef, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
 import * as z from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -89,6 +90,7 @@ const SECTIONS = {
 } as const;
 
 export default function Settings() {
+  const navigate = useNavigate();
   const { settings, updateSetting, clearSetting, updatePresetFromRemote } =
     useSetting();
   const [isPresetModalOpen, setPresetModalOpen] = useState(false);
@@ -223,13 +225,12 @@ export default function Settings() {
     console.log('onSubmit', values);
 
     updateSetting(values);
-    // toast.success('Settings saved successfully');
-    // await api.closeSettingsWindow();
-    await api.showMainWindow();
+    toast.success('Settings saved successfully');
+    navigate(-1);
   };
 
-  const onCancel = async () => {
-    // await api.closeSettingsWindow();
+  const onCancel = () => {
+    navigate(-1);
   };
 
   const handlePresetModal = async (e: React.MouseEvent) => {
