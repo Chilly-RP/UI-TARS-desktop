@@ -249,10 +249,7 @@ export class LocalAgentOperator extends Operator {
     const result = await this.getFileExecutor().execute(fileInputs);
 
     if (!result.success) {
-      logger.error(
-        '[LocalAgentOperator] File operation failed:',
-        result.error,
-      );
+      logger.error('[LocalAgentOperator] File operation failed:', result.error);
       return {
         status: StatusEnum.RUNNING, // Continue loop even on error
         toolOutput: `File operation failed: ${result.error || 'Unknown error'}`,
@@ -365,10 +362,7 @@ export class LocalAgentOperator extends Operator {
     const result = await this.getCodeExecutor().execute(codeInputs);
 
     if (!result.success) {
-      logger.error(
-        '[LocalAgentOperator] Code execution failed:',
-        result.error,
-      );
+      logger.error('[LocalAgentOperator] Code execution failed:', result.error);
       return {
         status: StatusEnum.RUNNING, // Continue loop even on error
         toolOutput: `Code execution failed: ${result.error || 'Unknown error'}\n${result.stderr || ''}`,

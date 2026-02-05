@@ -10,9 +10,8 @@ const t = initIpc.create();
 export const permissionRoute = t.router({
   getEnsurePermissions: t.procedure.input<void>().handle(async () => {
     if (env.isMacOS) {
-      const { ensurePermissions } = await import(
-        '@main/utils/systemPermissions'
-      );
+      const { ensurePermissions } =
+        await import('@main/utils/systemPermissions');
       store.setState({ ensurePermissions: ensurePermissions() });
     } else {
       store.setState({

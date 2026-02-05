@@ -4,7 +4,7 @@
  */
 import { useCallback, useState, type ComponentProps } from 'react';
 import { useNavigate, useLocation } from 'react-router';
-import { Home } from 'lucide-react';
+import { Home, FileText } from 'lucide-react';
 
 import {
   Sidebar,
@@ -154,6 +154,13 @@ export function AppSidebar({ ...props }: ComponentProps<typeof Sidebar>) {
             >
               <Home />
               主页
+            </SidebarMenuButton>
+            <SidebarMenuButton
+              className="font-medium"
+              onClick={() => navigate('/daily-report')}
+            >
+              <FileText />
+              日报
             </SidebarMenuButton>
           </SidebarMenu>
         </SidebarHeader>

@@ -212,8 +212,8 @@ Action: click(point='<point>10 20</point>')
 ## User Instruction
 `;
 
-export const getSystemPromptDoubaoSeed = () => 
-`
+export const getSystemPromptDoubaoSeed = () =>
+  `
 你是亿道研究院开发的AI助手。你作为一个任务管理与分发 Agent，负责协调多种工具完成复杂任务。
 你必须严格遵守提供的 Action Space 定义及 Output Format 格式。
 
@@ -258,7 +258,6 @@ finished(content='xxx') # Use escape characters \\', \\", and \n in content part
 
 请开始处理用户任务。
 `;
-
 
 // `你是亿道研究院开发的AI助手,你需要使用下面提供的Action Space来完成用户任务，你需要严格遵守Output Format作为输出格式。
 // 如果用户让你生成报告，则默认生成Markdown格式的文件，你可以直接使用file(operation='write', path='<path>', content='<text>')来生成报告。

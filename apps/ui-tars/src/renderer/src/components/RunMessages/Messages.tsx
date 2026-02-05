@@ -3,7 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import { useState } from 'react';
-import { AlertCircle, Camera, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import {
+  AlertCircle,
+  Camera,
+  ChevronDown,
+  ChevronRight,
+  Loader2,
+} from 'lucide-react';
 import { ErrorStatusEnum } from '@ui-tars/shared/types';
 
 import { Button } from '@renderer/components/ui/button';

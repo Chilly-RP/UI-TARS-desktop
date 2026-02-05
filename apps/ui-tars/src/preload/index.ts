@@ -7,7 +7,12 @@ import { IpcRendererEvent, contextBridge, ipcRenderer } from 'electron';
 
 import type { UTIOPayload } from '@ui-tars/utio';
 
-import type { AppState, LocalStore } from '@main/store/types';
+import type {
+  AppState,
+  LocalStore,
+  DailyReportSettings,
+  DailyReport,
+} from '@main/store/types';
 
 export type Channels = '';
 
@@ -103,6 +108,29 @@ const electronHandler = {
       const handler = (_: IpcRendererEvent, error: string) => callback(error);
       ipcRenderer.on('asr:error', handler);
       return () => ipcRenderer.removeListener('asr:error', handler);
+    },
+  },
+  dailyReport: {
+    // Event listeners for main process notifications
+    onSettingsUpdated: (callback: (settings: DailyReportSettings) => void) => {
+      const handler = (_: IpcRendererEvent, settings: DailyReportSettings) =>
+        callback(settings);
+      ipcRenderer.on('daily-report-settings-updated', handler);
+      return () =>
+        ipcRenderer.removeListener('daily-report-settings-updated', handler);
+    },
+    onReportGenerated: (callback: (report: DailyReport) => void) => {
+      const handler = (_: IpcRendererEvent, report: DailyReport) =>
+        callback(report);
+      ipcRenderer.on('daily-report-generated', handler);
+      return () =>
+        ipcRenderer.removeListener('daily-report-generated', handler);
+    },
+    onNavigateToReport: (callback: () => void) => {
+      const handler = () => callback();
+      ipcRenderer.on('navigate-to-daily-report', handler);
+      return () =>
+        ipcRenderer.removeListener('navigate-to-daily-report', handler);
     },
   },
 };

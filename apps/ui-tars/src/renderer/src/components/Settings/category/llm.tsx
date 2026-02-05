@@ -76,14 +76,19 @@ export function LLMSettings({ className }: LLMSettingsProps) {
     }
   }, [settings, form]);
 
-  const [newBaseUrl, newApiKey, newModelName, newReasoningEffort, newUseResponsesApi] =
-    form.watch([
-      'llmBaseUrl',
-      'llmApiKey',
-      'llmModelName',
-      'llmReasoningEffort',
-      'llmUseResponsesApi',
-    ]);
+  const [
+    newBaseUrl,
+    newApiKey,
+    newModelName,
+    newReasoningEffort,
+    newUseResponsesApi,
+  ] = form.watch([
+    'llmBaseUrl',
+    'llmApiKey',
+    'llmModelName',
+    'llmReasoningEffort',
+    'llmUseResponsesApi',
+  ]);
 
   useEffect(() => {
     const hasChanged =
@@ -111,7 +116,9 @@ export function LLMSettings({ className }: LLMSettingsProps) {
     const llmModelName = form.getValues('llmModelName');
 
     if (!llmBaseUrl || !llmApiKey || !llmModelName) {
-      toast.error('Please fill in all required fields before checking model availability');
+      toast.error(
+        'Please fill in all required fields before checking model availability',
+      );
       return;
     }
 
@@ -233,10 +240,7 @@ export function LLMSettings({ className }: LLMSettingsProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Reasoning Effort</FormLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  value={field.value}
-                >
+                <Select onValueChange={field.onChange} value={field.value}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select reasoning effort" />
                   </SelectTrigger>

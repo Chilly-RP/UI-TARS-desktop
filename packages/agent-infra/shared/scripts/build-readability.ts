@@ -8,9 +8,8 @@ import * as esbuild from 'esbuild';
 async function buildReadability(): Promise<void> {
   try {
     // Get the path to Readability.js using node resolution
-    const readabilityPath = require.resolve(
-      '@mozilla/readability/Readability.js',
-    );
+    const readabilityPath =
+      require.resolve('@mozilla/readability/Readability.js');
 
     const srcDir = path.resolve(__dirname, '../src');
     const constantsPath = path.join(srcDir, 'readability-script.ts');

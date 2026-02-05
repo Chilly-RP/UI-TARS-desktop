@@ -4,8 +4,7 @@
  */
 import { EnhancedGroupedActionDump } from './component/store';
 
-interface ExecutionDumpWithPlaywrightAttributes
-  extends EnhancedGroupedActionDump {
+interface ExecutionDumpWithPlaywrightAttributes extends EnhancedGroupedActionDump {
   attributes: Record<string, any>;
 }
 

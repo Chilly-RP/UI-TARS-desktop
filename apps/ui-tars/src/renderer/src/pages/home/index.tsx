@@ -225,7 +225,7 @@ const Home = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="px-5">
-            <img
+              <img
                 src={agentUseImg}
                 alt=""
                 className="w-full h-full aspect-video object-fill rounded-lg"

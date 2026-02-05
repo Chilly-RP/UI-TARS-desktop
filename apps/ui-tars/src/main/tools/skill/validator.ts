@@ -78,9 +78,7 @@ export class SkillValidator {
         file.startsWith('/') ||
         file.startsWith('\\')
       ) {
-        logger.warn(
-          `[SkillValidator] Path traversal attempt in file: ${file}`,
-        );
+        logger.warn(`[SkillValidator] Path traversal attempt in file: ${file}`);
         return { isValid: false, reason: 'Invalid file path' };
       }
     }

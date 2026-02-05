@@ -140,7 +140,13 @@ const createGUIAgent = (
   abortController: AbortController | null,
   settings: any,
 ): GUIAgent<any> => {
-  const handleData = async ({ data, isStreamingUpdate }: { data: GUIAgentData; isStreamingUpdate?: boolean }) => {
+  const handleData = async ({
+    data,
+    isStreamingUpdate,
+  }: {
+    data: GUIAgentData;
+    isStreamingUpdate?: boolean;
+  }) => {
     const lastConv = stateManager.getLastMessage();
     const { status, conversations, ...restUserData } = data;
 
@@ -229,10 +235,7 @@ const createGUIAgent = (
     stateManager.updateState({
       status,
       restUserData,
-      messages: [
-        ...messagesWithoutStreaming,
-        ...conversationsWithSoM,
-      ],
+      messages: [...messagesWithoutStreaming, ...conversationsWithSoM],
     });
   };
 

@@ -61,9 +61,31 @@ function getNodePath(): string {
   paths.push('/usr/local/lib/node_modules');
   paths.push('/usr/lib/node_modules');
   paths.push(path.join(homeDir, '.npm-global', 'lib', 'node_modules'));
-  paths.push(path.join(homeDir, '.nvm', 'versions', 'node', process.version, 'lib', 'node_modules'));
+  paths.push(
+    path.join(
+      homeDir,
+      '.nvm',
+      'versions',
+      'node',
+      process.version,
+      'lib',
+      'node_modules',
+    ),
+  );
   // fnm support
-  paths.push(path.join(homeDir, 'Library', 'Application Support', 'fnm', 'node-versions', process.version.slice(1), 'installation', 'lib', 'node_modules'));
+  paths.push(
+    path.join(
+      homeDir,
+      'Library',
+      'Application Support',
+      'fnm',
+      'node-versions',
+      process.version.slice(1),
+      'installation',
+      'lib',
+      'node_modules',
+    ),
+  );
   // npm prefix global path (derived from node executable path)
   const nodeDir = path.dirname(process.execPath);
   paths.push(path.join(nodeDir, '..', 'lib', 'node_modules'));
@@ -252,11 +274,14 @@ ${userCode}
         stdio: ['ignore', 'pipe', 'pipe'],
       });
 
-      const timeoutId = setTimeout(() => {
-        killed = true;
-        proc.kill('SIGTERM');
-        logger.warn(`[CodeExecutor] Execution timeout after ${timeout}ms`);
-      }, Math.min(timeout, DEFAULT_TIMEOUT));
+      const timeoutId = setTimeout(
+        () => {
+          killed = true;
+          proc.kill('SIGTERM');
+          logger.warn(`[CodeExecutor] Execution timeout after ${timeout}ms`);
+        },
+        Math.min(timeout, DEFAULT_TIMEOUT),
+      );
 
       proc.stdout.on('data', (data) => {
         stdout += data.toString();

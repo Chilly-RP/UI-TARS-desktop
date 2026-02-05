@@ -212,7 +212,7 @@ class ASRProtocol {
     const flags = data[1] & 0x0f;
     const compressionType = data[2] & 0x0f;
 
-    let payload = data.slice(headerSize * 4);
+    const payload = data.slice(headerSize * 4);
     const view = new DataView(
       payload.buffer,
       payload.byteOffset,

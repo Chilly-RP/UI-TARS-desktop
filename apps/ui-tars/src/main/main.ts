@@ -35,6 +35,7 @@ import { registerASRHandlers } from './services/asr';
 import { sanitizeState } from './utils/sanitizeState';
 import { windowManager } from './services/windowManager';
 import { checkBrowserAvailability } from './services/browserCheck';
+import { DailyReportService } from './services/dailyReport';
 
 const { isProd } = env;
 
@@ -168,6 +169,14 @@ const initializeApp = async () => {
     } catch (error) {
       logger.error('Failed to update preset:', error);
     }
+  }
+
+  // Initialize Daily Report Service
+  try {
+    await DailyReportService.getInstance().initialize();
+    logger.info('DailyReportService initialized');
+  } catch (error) {
+    logger.error('Failed to initialize DailyReportService:', error);
   }
 };
 

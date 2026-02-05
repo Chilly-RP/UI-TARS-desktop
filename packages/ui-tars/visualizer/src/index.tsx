@@ -23,8 +23,7 @@ import { transformComputerUseDataToDump } from './transform';
 const { Dragger } = Upload;
 let globalRenderCount = 1;
 
-interface ExecutionDumpWithPlaywrightAttributes
-  extends EnhancedGroupedActionDump {
+interface ExecutionDumpWithPlaywrightAttributes extends EnhancedGroupedActionDump {
   attributes: Record<string, any>;
 }
 

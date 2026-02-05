@@ -193,7 +193,7 @@ export function replaceBase64Prefix(base64: string) {
 }
 
 // Default preprocessing image quality (can be overridden by parameter)
-const DEFAULT_PREPROCESS_PNG_QUALITY: number = 60; // PNG quality percentage (0-100)
+const DEFAULT_PREPROCESS_PNG_QUALITY = 60; // PNG quality percentage (0-100)
 
 export async function preprocessResizeImage(
   image_base64: string,

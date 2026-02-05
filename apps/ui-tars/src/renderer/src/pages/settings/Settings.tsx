@@ -3,7 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 // /apps/ui-tars/src/renderer/src/pages/settings/index.tsx
-import { RefreshCcw, Trash, Eye, EyeOff, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import {
+  RefreshCcw,
+  Trash,
+  Eye,
+  EyeOff,
+  CheckCircle,
+  XCircle,
+  Loader2,
+} from 'lucide-react';
 import { useRef, useEffect, useState } from 'react';
 import * as z from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -42,6 +50,7 @@ import googleIcon from '@resources/icons/google-color.svg?url';
 import bingIcon from '@resources/icons/bing-color.svg?url';
 import baiduIcon from '@resources/icons/baidu-color.svg?url';
 import { REPO_OWNER, REPO_NAME } from '@main/shared/constants';
+import { DailyReportSettingsPanel } from '@renderer/components/Settings/category/dailyReport';
 
 // 定义表单验证 schema
 const formSchema = z.object({
@@ -75,6 +84,7 @@ const SECTIONS = {
   chat: 'Chat Settings',
   asr: 'ASR Settings',
   report: 'Report Settings',
+  dailyReport: 'Daily Report',
   general: 'General',
 } as const;
 
@@ -541,7 +551,8 @@ export default function Settings() {
                             className="h-4 w-4 rounded border-gray-300"
                           />
                           <span className="text-sm text-gray-500">
-                            Use OpenAI Response API instead of Chat Completions API
+                            Use OpenAI Response API instead of Chat Completions
+                            API
                           </span>
                         </div>
                       </FormControl>
@@ -560,7 +571,9 @@ export default function Settings() {
                       const llmModelName = form.getValues('llmModelName');
 
                       if (!llmBaseUrl || !llmApiKey || !llmModelName) {
-                        toast.error('Please fill in all required fields before checking model availability');
+                        toast.error(
+                          'Please fill in all required fields before checking model availability',
+                        );
                         return;
                       }
 
@@ -572,10 +585,11 @@ export default function Settings() {
                           apiKey: llmApiKey,
                           modelName: llmModelName,
                         };
-                        const [isAvailable, responseApiSupported] = await Promise.all([
-                          api.checkLLMModelAvailability(modelConfig),
-                          api.checkLLMResponseApiSupport(modelConfig),
-                        ]);
+                        const [isAvailable, responseApiSupported] =
+                          await Promise.all([
+                            api.checkLLMModelAvailability(modelConfig),
+                            api.checkLLMResponseApiSupport(modelConfig),
+                          ]);
 
                         if (isAvailable) {
                           setLlmCheckState({
@@ -616,14 +630,18 @@ export default function Settings() {
                   {llmCheckState.status === 'success' && (
                     <div className="flex items-start gap-2 rounded-md border border-green-200 bg-green-50 p-3">
                       <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
-                      <p className="text-sm text-green-800">{llmCheckState.message}</p>
+                      <p className="text-sm text-green-800">
+                        {llmCheckState.message}
+                      </p>
                     </div>
                   )}
 
                   {llmCheckState.status === 'error' && (
                     <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3">
                       <XCircle className="h-4 w-4 text-red-600 mt-0.5" />
-                      <p className="text-sm text-red-800">{llmCheckState.message}</p>
+                      <p className="text-sm text-red-800">
+                        {llmCheckState.message}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -860,6 +878,18 @@ export default function Settings() {
                     </FormItem>
                   )}
                 />
+                <div className="h-50"></div>
+              </div>
+
+              {/* Daily Report Settings */}
+              <div
+                id="dailyReport"
+                ref={(el) => {
+                  sectionRefs.current.dailyReport = el;
+                }}
+                className="space-y-6 pt-6 ml-1 mr-4"
+              >
+                <DailyReportSettingsPanel />
                 <div className="h-50"></div>
               </div>
 

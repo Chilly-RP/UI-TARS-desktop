@@ -11,7 +11,12 @@ import {
 import { actionParser } from '@ui-tars/action-parser';
 
 import { useContext } from './context/useContext';
-import { Model, type InvokeParams, type InvokeOutput, type OnStreamChunk } from './types';
+import {
+  Model,
+  type InvokeParams,
+  type InvokeOutput,
+  type OnStreamChunk,
+} from './types';
 
 import {
   preprocessResizeImage,
@@ -141,7 +146,10 @@ export class DoubaoSeedModel extends Model {
 
     if (this.modelConfig.useResponsesApi) {
       // Use Response API
-      logger.info('[DoubaoSeed ResponseAPI] Calling with reasoning_effort:', reasoning_effort);
+      logger.info(
+        '[DoubaoSeed ResponseAPI] Calling with reasoning_effort:',
+        reasoning_effort,
+      );
 
       // Determine which messages to send based on whether we have a previous response ID
       // When using previous_response_id, the API automatically retrieves conversation history,
@@ -157,11 +165,16 @@ export class DoubaoSeedModel extends Model {
             break;
           }
         }
-        messagesToSend = lastAssistantIndex > -1
-          ? filteredMessages.slice(lastAssistantIndex + 1)
-          : filteredMessages;
+        messagesToSend =
+          lastAssistantIndex > -1
+            ? filteredMessages.slice(lastAssistantIndex + 1)
+            : filteredMessages;
 
-        logger.info('[DoubaoSeed ResponseAPI] Using incremental input, sending', messagesToSend.length, 'messages');
+        logger.info(
+          '[DoubaoSeed ResponseAPI] Using incremental input, sending',
+          messagesToSend.length,
+          'messages',
+        );
       }
 
       // 转换消息格式为 Response API 的 input 格式
@@ -265,8 +278,14 @@ export class DoubaoSeedModel extends Model {
           if (event.type === 'response.completed') {
             totalTokens = event.response?.usage?.total_tokens ?? 0;
             responseId = event.response?.id ?? '';
-            logger.info('[DoubaoSeed ResponseAPI] Stream completed, tokens:', totalTokens);
-            logger.info('[DoubaoSeed ResponseAPI] Completed event response:', JSON.stringify(event.response));
+            logger.info(
+              '[DoubaoSeed ResponseAPI] Stream completed, tokens:',
+              totalTokens,
+            );
+            logger.info(
+              '[DoubaoSeed ResponseAPI] Completed event response:',
+              JSON.stringify(event.response),
+            );
           }
         }
 
@@ -277,7 +296,10 @@ export class DoubaoSeedModel extends Model {
           isComplete: true,
         });
 
-        logger.info('[DoubaoSeed ResponseAPI] Streaming finished, text length:', accumulatedText.length);
+        logger.info(
+          '[DoubaoSeed ResponseAPI] Streaming finished, text length:',
+          accumulatedText.length,
+        );
 
         return {
           prediction: accumulatedText,
@@ -313,7 +335,10 @@ export class DoubaoSeedModel extends Model {
       }
     } else {
       // Use Chat Completions API
-      logger.info('[DoubaoSeed ChatAPI] Calling with reasoning_effort:', reasoning_effort);
+      logger.info(
+        '[DoubaoSeed ChatAPI] Calling with reasoning_effort:',
+        reasoning_effort,
+      );
 
       const createCompletionParams = {
         model,
@@ -323,13 +348,18 @@ export class DoubaoSeedModel extends Model {
         temperature,
         top_p,
         reasoning_effort,
-      } as ChatCompletionCreateParamsNonStreaming & { reasoning_effort: string };
+      } as ChatCompletionCreateParamsNonStreaming & {
+        reasoning_effort: string;
+      };
 
-      const result = await openai.chat.completions.create(createCompletionParams, {
-        ...options,
-        timeout: 1000 * 60,
-        headers,
-      });
+      const result = await openai.chat.completions.create(
+        createCompletionParams,
+        {
+          ...options,
+          timeout: 1000 * 60,
+          headers,
+        },
+      );
 
       return {
         prediction: result.choices?.[0]?.message?.content ?? '',
@@ -339,7 +369,9 @@ export class DoubaoSeedModel extends Model {
     }
   }
 
-  async invoke(params: InvokeParams & { onStreamChunk?: OnStreamChunk }): Promise<InvokeOutput> {
+  async invoke(
+    params: InvokeParams & { onStreamChunk?: OnStreamChunk },
+  ): Promise<InvokeOutput> {
     const {
       conversations,
       screenContext,

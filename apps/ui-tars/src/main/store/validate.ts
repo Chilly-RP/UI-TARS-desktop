@@ -13,6 +13,18 @@ const PresetSourceSchema = z.object({
   lastUpdated: z.number().optional(),
 });
 
+// Daily Report Settings Schema
+export const DailyReportSettingsSchema = z.object({
+  enabled: z.boolean().default(false),
+  screenshotIntervalMinutes: z.number().min(1).max(15).default(5),
+  retentionDays: z.number().min(1).max(7).default(3),
+  notificationTime: z
+    .string()
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
+    .default('20:00'),
+  excludedApps: z.array(z.string()).default([]),
+});
+
 export const PresetSchema = z.object({
   // Local VLM Settings
   vlmProvider: z.nativeEnum(VLMProviderV2).optional(),

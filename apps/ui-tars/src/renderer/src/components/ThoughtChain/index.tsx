@@ -81,22 +81,21 @@ export default function ThoughtChain({
         <div className="my-3 text-gray-600">
           <Markdown>{thoughtStep.thought || ''}</Markdown>
           {/* Blinking cursor during streaming */}
-          {isStreaming && (
-            <span className="streaming-cursor">|</span>
-          )}
+          {isStreaming && <span className="streaming-cursor">|</span>}
         </div>
       )}
 
       {/* Only show action buttons when not streaming (action is parsed after completion) */}
-      {!isStreaming && steps?.map?.((step, index) => (
-        <ThoughtStepCard
-          key={index}
-          step={step}
-          index={index}
-          onClick={onClick}
-          hasSomImage={hasSomImage}
-        />
-      ))}
+      {!isStreaming &&
+        steps?.map?.((step, index) => (
+          <ThoughtStepCard
+            key={index}
+            step={step}
+            index={index}
+            onClick={onClick}
+            hasSomImage={hasSomImage}
+          />
+        ))}
     </div>
   );
 }

@@ -281,7 +281,7 @@ export class SOPManager {
     const screenWidth = rawWidth * 0.7;
     const screenHeight = rawHeight * 0.7;
 
-    let actionInputs = { ...action.action_inputs };
+    const actionInputs = { ...action.action_inputs };
 
     // 构建执行参数
     const executeParams = {

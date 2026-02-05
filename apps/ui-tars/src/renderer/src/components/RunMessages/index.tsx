@@ -77,12 +77,7 @@ const RunMessages = () => {
       ? chatMessages.slice(0, -1)
       : chatMessages;
     updateMessages(currentSessionId, [...baseMessages, ...newMessages]);
-  }, [
-    currentSessionId,
-    chatMessages.length,
-    messages.length,
-    lastMessageKey,
-  ]);
+  }, [currentSessionId, chatMessages.length, messages.length, lastMessageKey]);
 
   const displayMessages = useMemo(() => {
     if (!lastMessage) {
@@ -192,7 +187,8 @@ const RunMessages = () => {
               value,
             } = message;
             // Cast to access isStreaming which is defined in base Conversation type
-            const isStreaming = (message as { isStreaming?: boolean }).isStreaming;
+            const isStreaming = (message as { isStreaming?: boolean })
+              .isStreaming;
 
             // Find the finished step
             const finishedStep = predictionParsed?.find(

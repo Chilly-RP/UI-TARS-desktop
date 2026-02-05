@@ -78,9 +78,11 @@ export class GUIAgent<T extends Operator> extends BaseGUIAgent<
       maxLoopCount = MAX_LOOP_COUNT,
     } = this.config;
     const supportsScreenshot =
-      (operator.constructor as typeof Operator & {
-        SUPPORTS_SCREENSHOT?: boolean;
-      }).SUPPORTS_SCREENSHOT !== false;
+      (
+        operator.constructor as typeof Operator & {
+          SUPPORTS_SCREENSHOT?: boolean;
+        }
+      ).SUPPORTS_SCREENSHOT !== false;
 
     const currentTime = Date.now();
     const data: GUIAgentData = {
@@ -297,12 +299,14 @@ export class GUIAgent<T extends Operator> extends BaseGUIAgent<
                   scaleFactor,
                 },
                 // Show streaming content as thought (action will be parsed after completion)
-                predictionParsed: [{
-                  reflection: null,
-                  thought: chunk.text,
-                  action_type: '',  // Empty indicates streaming in progress
-                  action_inputs: {},
-                }],
+                predictionParsed: [
+                  {
+                    reflection: null,
+                    thought: chunk.text,
+                    action_type: '', // Empty indicates streaming in progress
+                    action_inputs: {},
+                  },
+                ],
                 isStreaming: true,
               };
 
@@ -497,7 +501,10 @@ export class GUIAgent<T extends Operator> extends BaseGUIAgent<
 
             // Add tool output to conversations if available
             // Skip tool output for 'finished' action - the final result is already in the finished action content
-            if (executeOutput?.toolOutput && actionType !== INTERNAL_ACTION_SPACES_ENUM.FINISHED) {
+            if (
+              executeOutput?.toolOutput &&
+              actionType !== INTERNAL_ACTION_SPACES_ENUM.FINISHED
+            ) {
               const toolEnd = Date.now();
               const toolMessage: Conversation = {
                 from: 'system',

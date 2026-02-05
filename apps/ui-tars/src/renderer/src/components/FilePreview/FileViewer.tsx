@@ -70,7 +70,7 @@ const FileViewer: React.FC<FileViewerProps> = ({
         className="h-full w-full"
         scrollbars="both"
       >
-        <div className="p-4">
+        <div className="p-4 pr-12 min-w-max">
           {isHtml ? (
             <div
               className="prose prose-sm w-full max-w-full dark:prose-invert break-words overflow-wrap-anywhere"

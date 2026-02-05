@@ -165,7 +165,7 @@ class ASRProtocol {
     const compressionType = data[2] & 0x0f;
 
     // 使用 subarray 并确保转换为 Buffer
-    let payload = Buffer.from(data.subarray(headerSize * 4));
+    const payload = Buffer.from(data.subarray(headerSize * 4));
 
     const response: ASRResponse = {
       messageType,
@@ -246,9 +246,9 @@ class ASRService {
   private config: ASRConfig | null = null;
   private mainWindow: BrowserWindow | null = null;
   // 跟踪已确认的文本，避免重复发送
-  private confirmedText: string = '';
+  private confirmedText = '';
   // 跟踪上次发送的临时文本，避免重复发送相同内容
-  private lastPendingText: string = '';
+  private lastPendingText = '';
 
   private constructor() {}
 
@@ -321,10 +321,7 @@ class ASRService {
     }
   }
 
-  async sendAudioData(
-    audioData: number[],
-    isLast: boolean = false,
-  ): Promise<void> {
+  async sendAudioData(audioData: number[], isLast = false): Promise<void> {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       // logger.warn('[ASR] WebSocket not connected');
       return;

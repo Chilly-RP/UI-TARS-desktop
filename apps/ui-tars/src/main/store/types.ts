@@ -62,4 +62,60 @@ export enum Operator {
   LocalAgent = 'Local Agent Assistant',
 }
 
+// Daily Report Types
+export interface DailyReportSettings {
+  enabled: boolean;
+  screenshotIntervalMinutes: number; // 1-15
+  retentionDays: number; // 1-7
+  notificationTime: string; // "HH:mm"
+  excludedApps: string[];
+}
+
+export interface AppUsageRecord {
+  id: string;
+  appName: string;
+  windowTitle: string;
+  startTime: number;
+  endTime: number;
+  duration: number;
+  date: string; // YYYY-MM-DD
+}
+
+export interface AppUsageSummary {
+  appName: string;
+  duration: number;
+  percentage: number;
+}
+
+export interface ActivitySummary {
+  timeRange: string;
+  summary: string;
+  topics: string[];
+}
+
+export interface AgentInteraction {
+  instruction: string;
+  status: string;
+  timestamp: number;
+}
+
+export interface DailyReport {
+  id: string;
+  date: string; // YYYY-MM-DD
+  totalScreenTime: number;
+  appUsage: AppUsageSummary[];
+  activities: ActivitySummary[];
+  agentInteractions: AgentInteraction[];
+  summary: string;
+  generatedAt: number;
+}
+
+export const DEFAULT_DAILY_REPORT_SETTINGS: DailyReportSettings = {
+  enabled: false,
+  screenshotIntervalMinutes: 5,
+  retentionDays: 3,
+  notificationTime: '20:00',
+  excludedApps: [],
+};
+
 export type { PresetSource, LocalStore };
