@@ -6,10 +6,8 @@ import { get, set, del, entries, createStore } from 'idb-keyval';
 
 import { DailyReport } from '@main/store/types';
 
-const DBName = 'ui_tars_db';
-
-// Create a dedicated store for daily reports
-const dailyReportStore = createStore(DBName, 'daily_reports');
+// Use a dedicated database for daily reports to avoid IndexedDB version conflicts
+const dailyReportStore = createStore('ui_tars_daily_reports_db', 'daily_reports');
 
 // Daily Report Manager class
 export class DailyReportManager {

@@ -82,17 +82,25 @@ export default function DailyReportPage() {
 
   const handleGenerateReport = async () => {
     setGenerating(true);
+    console.log('=== handleGenerateReport START ===');
     try {
+      console.log('handleGenerateReport: Calling API for date', currentDate);
       const result = await api.generateDailyReport({ date: currentDate });
+      console.log('handleGenerateReport: Received result', JSON.stringify(result).substring(0, 500));
       if (result.success && result.report) {
+        console.log('handleGenerateReport: Saving report to IndexedDB');
         // Save to IndexedDB
         await dailyReportManager.saveReport(result.report);
         setReport(result.report);
+        console.log('handleGenerateReport: Report saved and set');
+      } else {
+        console.warn('handleGenerateReport: No report in result', result);
       }
     } catch (error) {
       console.error('Failed to generate report:', error);
     } finally {
       setGenerating(false);
+      console.log('=== handleGenerateReport END ===');
     }
   };
 
