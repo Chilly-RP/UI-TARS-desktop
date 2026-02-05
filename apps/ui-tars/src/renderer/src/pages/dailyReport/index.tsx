@@ -3,7 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, RefreshCw, Settings } from 'lucide-react';
+import { useNavigate } from 'react-router';
+import {
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+  Settings,
+  Images,
+} from 'lucide-react';
 
 import { api } from '@renderer/api';
 import { DailyReport } from '@main/store/types';
@@ -23,6 +30,7 @@ import {
 import { DailyReportSettingsPanel } from '@renderer/components/Settings/category/dailyReport';
 
 export default function DailyReportPage() {
+  const navigate = useNavigate();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState(() => {
     const today = new Date();
@@ -178,6 +186,16 @@ export default function DailyReportPage() {
               className={`h-4 w-4 mr-2 ${generating ? 'animate-spin' : ''}`}
             />
             {generating ? '生成中...' : '生成报告'}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() =>
+              navigate(`/daily-report/screenshots?date=${currentDate}`)
+            }
+            title="查看截图"
+          >
+            <Images className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"

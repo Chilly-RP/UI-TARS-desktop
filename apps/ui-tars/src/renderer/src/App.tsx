@@ -16,6 +16,7 @@ const FreeRemoteOperator = lazy(() => import('./pages/remote/free'));
 // const PaidRemoteOperator = lazy(() => import('./pages/remote/paid'));
 const Settings = lazy(() => import('./pages/settings/Settings'));
 const DailyReport = lazy(() => import('./pages/dailyReport'));
+const ScreenshotGallery = lazy(() => import('./pages/dailyReport/screenshots'));
 
 const Widget = lazy(() => import('./pages/widget'));
 const HumanIntervention = lazy(() => import('./pages/intervention'));
@@ -37,6 +38,10 @@ export default function App() {
             <Route path="/free-remote" element={<FreeRemoteOperator />} />
             {/* <Route path="/paid-remote" element={<PaidRemoteOperator />} /> */}
             <Route path="/daily-report" element={<DailyReport />} />
+            <Route
+              path="/daily-report/screenshots"
+              element={<ScreenshotGallery />}
+            />
           </Route>
 
           <Route path="/settings" element={<Settings />} />

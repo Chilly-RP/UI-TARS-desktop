@@ -133,9 +133,7 @@ export function DailyReportSettingsPanel() {
                 status.isTracking ? 'bg-green-500' : 'bg-gray-300'
               }`}
             />
-            <span>
-              App追踪: {status.isTracking ? 'Active' : 'Inactive'}
-            </span>
+            <span>App追踪: {status.isTracking ? 'Active' : 'Inactive'}</span>
           </div>
           <div className="flex items-center gap-2 text-sm">
             <span
@@ -143,9 +141,7 @@ export function DailyReportSettingsPanel() {
                 status.isCapturing ? 'bg-green-500' : 'bg-gray-300'
               }`}
             />
-            <span>
-              屏幕截图: {status.isCapturing ? 'Active' : 'Inactive'}
-            </span>
+            <span>屏幕截图: {status.isCapturing ? 'Active' : 'Inactive'}</span>
           </div>
           {status.lastReportDate && (
             <div className="text-sm text-gray-500">
