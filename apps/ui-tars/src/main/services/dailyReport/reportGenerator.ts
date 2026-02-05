@@ -29,11 +29,21 @@ export class ReportGenerator {
     // Get app usage records for the date
     const appUsageRecords = DailyReportStore.getAppUsageRecordsByDate(date);
 
+    // Filter out excluded apps from settings
+    const settings = DailyReportStore.getSettings();
+    const filteredRecords = appUsageRecords.filter(
+      (record) => !settings.excludedApps.includes(record.appName),
+    );
+
+    logger.log(
+      `ReportGenerator: Filtered ${appUsageRecords.length - filteredRecords.length} excluded apps from ${appUsageRecords.length} total records`,
+    );
+
     // Calculate app usage summary
-    const appUsage = this.calculateAppUsage(appUsageRecords);
+    const appUsage = this.calculateAppUsage(filteredRecords);
 
     // Calculate total screen time
-    const totalScreenTime = appUsageRecords.reduce(
+    const totalScreenTime = filteredRecords.reduce(
       (sum, record) => sum + record.duration,
       0,
     );
