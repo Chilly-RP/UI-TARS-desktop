@@ -148,14 +148,14 @@ export class ReportGenerator {
     // Build summary parts
     const parts: string[] = [];
 
-    parts.push(`Total screen time: ${timeStr}`);
+    parts.push(`总屏幕时间：${timeStr}`);
 
     if (topApps.length > 0) {
-      parts.push(`Most used apps: ${topApps.join(', ')}`);
+      parts.push(`最常用应用：${topApps.join('、')}`);
     }
 
     if (topicsList.length > 0) {
-      parts.push(`Main topics: ${topicsList.join(', ')}`);
+      parts.push(`主要话题：${topicsList.join('、')}`);
     }
 
     if (agentInteractions.length > 0) {
@@ -163,11 +163,11 @@ export class ReportGenerator {
         (i) => i.status === 'completed',
       ).length;
       parts.push(
-        `Agent interactions: ${agentInteractions.length} (${completedTasks} completed)`,
+        `智能体交互：${agentInteractions.length} 次（${completedTasks} 次已完成）`,
       );
     }
 
-    return parts.join('. ') + '.';
+    return parts.join('。') + '。';
   }
 
   /**

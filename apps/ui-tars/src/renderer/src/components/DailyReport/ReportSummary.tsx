@@ -23,7 +23,7 @@ export function ReportSummary({ report }: ReportSummaryProps) {
 
   const formatDate = (dateStr: string): string => {
     const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
+    return date.toLocaleDateString('zh-CN', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -45,7 +45,7 @@ export function ReportSummary({ report }: ReportSummaryProps) {
         <div className="rounded-lg border bg-gradient-to-br from-blue-50 to-white p-4">
           <div className="flex items-center gap-2 text-blue-600 mb-2">
             <Clock className="h-5 w-5" />
-            <span className="text-sm font-medium">Screen Time</span>
+            <span className="text-sm font-medium">屏幕时间</span>
           </div>
           <div className="text-2xl font-bold text-gray-900">
             {formatDuration(report.totalScreenTime)}
@@ -56,7 +56,7 @@ export function ReportSummary({ report }: ReportSummaryProps) {
         <div className="rounded-lg border bg-gradient-to-br from-green-50 to-white p-4">
           <div className="flex items-center gap-2 text-green-600 mb-2">
             <Monitor className="h-5 w-5" />
-            <span className="text-sm font-medium">Apps Used</span>
+            <span className="text-sm font-medium">使用的应用</span>
           </div>
           <div className="text-2xl font-bold text-gray-900">
             {report.appUsage.length}
@@ -67,7 +67,7 @@ export function ReportSummary({ report }: ReportSummaryProps) {
         <div className="rounded-lg border bg-gradient-to-br from-purple-50 to-white p-4">
           <div className="flex items-center gap-2 text-purple-600 mb-2">
             <Bot className="h-5 w-5" />
-            <span className="text-sm font-medium">Agent Tasks</span>
+            <span className="text-sm font-medium">智能体任务</span>
           </div>
           <div className="text-2xl font-bold text-gray-900">
             {report.agentInteractions.length}
@@ -77,7 +77,7 @@ export function ReportSummary({ report }: ReportSummaryProps) {
 
       {/* Summary Text */}
       <div className="rounded-lg border bg-gray-50 p-4">
-        <h3 className="text-sm font-medium text-gray-700 mb-2">Summary</h3>
+        <h3 className="text-sm font-medium text-gray-700 mb-2">摘要</h3>
         <p className="text-gray-600">{report.summary}</p>
       </div>
     </div>

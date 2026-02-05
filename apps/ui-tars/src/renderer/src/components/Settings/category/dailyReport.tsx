@@ -99,22 +99,22 @@ export function DailyReportSettingsPanel() {
   if (loading || !settings) {
     return (
       <div className="space-y-6">
-        <h2 className="text-lg font-medium">Daily Report Settings</h2>
-        <div className="text-sm text-gray-500">Loading...</div>
+        <h2 className="text-lg font-medium">每日报告设置</h2>
+        <div className="text-sm text-gray-500">加载中...</div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-medium">Daily Report Settings</h2>
+      <h2 className="text-lg font-medium">每日报告设置</h2>
 
       {/* Enable/Disable Toggle */}
       <div className="flex items-center justify-between">
         <div className="space-y-0.5">
-          <Label htmlFor="daily-report-enabled">Enable Daily Report</Label>
+          <Label htmlFor="daily-report-enabled">启用每日报告</Label>
           <p className="text-sm text-gray-500">
-            Track app usage and capture screenshots for daily activity reports
+            追踪应用使用并截取屏幕截图以生成每日活动报告
           </p>
         </div>
         <Switch
@@ -134,7 +134,7 @@ export function DailyReportSettingsPanel() {
               }`}
             />
             <span>
-              App Tracking: {status.isTracking ? 'Active' : 'Inactive'}
+              App追踪: {status.isTracking ? 'Active' : 'Inactive'}
             </span>
           </div>
           <div className="flex items-center gap-2 text-sm">
@@ -144,12 +144,12 @@ export function DailyReportSettingsPanel() {
               }`}
             />
             <span>
-              Screenshot Capture: {status.isCapturing ? 'Active' : 'Inactive'}
+              屏幕截图: {status.isCapturing ? 'Active' : 'Inactive'}
             </span>
           </div>
           {status.lastReportDate && (
             <div className="text-sm text-gray-500">
-              Last report: {status.lastReportDate}
+              最后报告：{status.lastReportDate}
             </div>
           )}
         </div>
@@ -159,7 +159,7 @@ export function DailyReportSettingsPanel() {
       <div className="space-y-2">
         <Label className="flex items-center gap-2">
           <Camera className="h-4 w-4" />
-          Screenshot Interval
+          截图间隔
         </Label>
         <Select
           value={settings.screenshotIntervalMinutes.toString()}
@@ -172,23 +172,21 @@ export function DailyReportSettingsPanel() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="1">Every 1 minute</SelectItem>
-            <SelectItem value="2">Every 2 minutes</SelectItem>
-            <SelectItem value="5">Every 5 minutes</SelectItem>
-            <SelectItem value="10">Every 10 minutes</SelectItem>
-            <SelectItem value="15">Every 15 minutes</SelectItem>
+            <SelectItem value="1">每 1 分钟</SelectItem>
+            <SelectItem value="2">每 2 分钟</SelectItem>
+            <SelectItem value="5">每 5 分钟</SelectItem>
+            <SelectItem value="10">每 10 分钟</SelectItem>
+            <SelectItem value="15">每 15 分钟</SelectItem>
           </SelectContent>
         </Select>
-        <p className="text-sm text-gray-500">
-          How often to capture screenshots for activity analysis
-        </p>
+        <p className="text-sm text-gray-500">截取屏幕截图的频率</p>
       </div>
 
       {/* Data Retention */}
       <div className="space-y-2">
         <Label className="flex items-center gap-2">
           <Trash2 className="h-4 w-4" />
-          Data Retention
+          数据保留
         </Label>
         <Select
           value={settings.retentionDays.toString()}
@@ -201,22 +199,20 @@ export function DailyReportSettingsPanel() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="1">1 day</SelectItem>
-            <SelectItem value="3">3 days</SelectItem>
-            <SelectItem value="5">5 days</SelectItem>
-            <SelectItem value="7">7 days</SelectItem>
+            <SelectItem value="1">1 天</SelectItem>
+            <SelectItem value="3">3 天</SelectItem>
+            <SelectItem value="5">5 天</SelectItem>
+            <SelectItem value="7">7 天</SelectItem>
           </SelectContent>
         </Select>
-        <p className="text-sm text-gray-500">
-          How long to keep app usage data and screenshots
-        </p>
+        <p className="text-sm text-gray-500">保留应用使用数据和截图的时长</p>
       </div>
 
       {/* Notification Time */}
       <div className="space-y-2">
         <Label className="flex items-center gap-2">
           <Bell className="h-4 w-4" />
-          Daily Report Notification
+          每日报告通知
         </Label>
         <div className="flex items-center gap-2">
           <Clock className="h-4 w-4 text-gray-400" />
@@ -230,20 +226,16 @@ export function DailyReportSettingsPanel() {
             disabled={!settings.enabled}
           />
         </div>
-        <p className="text-sm text-gray-500">
-          Time to receive the daily report notification
-        </p>
+        <p className="text-sm text-gray-500">接收每日报告通知的时间</p>
       </div>
 
       {/* Excluded Apps */}
       <div className="space-y-2">
-        <Label>Excluded Apps</Label>
-        <p className="text-sm text-gray-500">
-          These apps will not be tracked in your daily report
-        </p>
+        <Label>排除的应用</Label>
+        <p className="text-sm text-gray-500">这些应用不会被追踪</p>
         <div className="flex gap-2">
           <Input
-            placeholder="App name (e.g., Finder)"
+            placeholder="应用名称（例如：Finder）"
             value={newExcludedApp}
             onChange={(e) => setNewExcludedApp(e.target.value)}
             onKeyDown={(e) => {
@@ -301,7 +293,7 @@ export function DailyReportSettingsPanel() {
             }}
           >
             <Bell className="h-4 w-4 mr-2" />
-            Test Notification
+            测试通知
           </Button>
         </div>
       )}

@@ -2,13 +2,7 @@
  * Copyright (c) 2025 Bytedance, Inc. and its affiliates.
  * SPDX-License-Identifier: Apache-2.0
  */
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-} from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 import { AppUsageSummary } from '@main/store/types';
 
@@ -66,7 +60,7 @@ export function AppUsageChart({ appUsage }: AppUsageChartProps) {
         percentage: item.percentage,
       })),
       {
-        name: 'Other',
+        name: '其他',
         value: otherDuration,
         percentage: otherPercentage,
       },
@@ -76,7 +70,13 @@ export function AppUsageChart({ appUsage }: AppUsageChartProps) {
   const chartData = prepareChartData();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: any[] }) => {
+  const CustomTooltip = ({
+    active,
+    payload,
+  }: {
+    active?: boolean;
+    payload?: any[];
+  }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
@@ -93,12 +93,10 @@ export function AppUsageChart({ appUsage }: AppUsageChartProps) {
 
   return (
     <div className="rounded-lg border p-4">
-      <h3 className="text-lg font-medium mb-4">App Usage</h3>
+      <h3 className="text-lg font-medium mb-4">应用使用情况</h3>
 
       {appUsage.length === 0 ? (
-        <div className="text-center text-gray-500 py-8">
-          No app usage data available
-        </div>
+        <div className="text-center text-gray-500 py-8">暂无应用使用数据</div>
       ) : (
         <div className="flex gap-6">
           {/* Pie Chart */}

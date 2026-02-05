@@ -123,26 +123,26 @@ export class VLMAnalyzer {
       return null;
     }
 
-    const prompt = `Analyze these ${imageContents.length} screenshots from a computer user's daily activity.
-For each screenshot, identify:
-1. The active application/website
-2. What the user appears to be doing
-3. Key topics or subjects visible
+    const prompt = `分析这 ${imageContents.length} 张来自电脑用户日常活动的截图。
+对于每张截图，请识别：
+1. 当前活跃的应用程序/网站
+2. 用户正在做什么
+3. 可见的关键话题或主题
 
-Then provide a brief overall summary of the activities shown.
+然后提供所有活动的简要总结。
 
-Respond in JSON format:
+请用中文回复，使用以下 JSON 格式：
 {
   "analyses": [
     {
       "index": 0,
-      "activeApp": "app name",
-      "activity": "brief description",
-      "topics": ["topic1", "topic2"]
+      "activeApp": "应用名称",
+      "activity": "简要描述",
+      "topics": ["话题1", "话题2"]
     }
   ],
-  "overallSummary": "brief summary of all activities",
-  "mainTopics": ["main topic 1", "main topic 2"]
+  "overallSummary": "所有活动的简要总结",
+  "mainTopics": ["主要话题1", "主要话题2"]
 }`;
 
     try {
@@ -206,19 +206,19 @@ Respond in JSON format:
         return {
           screenshotId: screenshot.id,
           timestamp: screenshot.timestamp,
-          summary: analysis?.activity || 'Unknown activity',
+          summary: analysis?.activity || '未知活动',
           topics: analysis?.topics || [],
-          activeApp: analysis?.activeApp || 'Unknown',
+          activeApp: analysis?.activeApp || '未知',
         };
       });
 
       const startTime = new Date(batch[0].timestamp);
       const endTime = new Date(batch[batch.length - 1].timestamp);
-      const timeRange = `${startTime.toLocaleTimeString()} - ${endTime.toLocaleTimeString()}`;
+      const timeRange = `${startTime.toLocaleTimeString('zh-CN')} - ${endTime.toLocaleTimeString('zh-CN')}`;
 
       return {
         timeRange,
-        summary: parsed.overallSummary || 'Activity analysis',
+        summary: parsed.overallSummary || '活动分析',
         topics: parsed.mainTopics || [],
         analyses,
       };
@@ -236,18 +236,18 @@ Respond in JSON format:
   ): BatchAnalysisResult {
     const startTime = new Date(batch[0].timestamp);
     const endTime = new Date(batch[batch.length - 1].timestamp);
-    const timeRange = `${startTime.toLocaleTimeString()} - ${endTime.toLocaleTimeString()}`;
+    const timeRange = `${startTime.toLocaleTimeString('zh-CN')} - ${endTime.toLocaleTimeString('zh-CN')}`;
 
     return {
       timeRange,
-      summary: 'Activity recorded (analysis unavailable)',
+      summary: '已记录活动（分析不可用）',
       topics: [],
       analyses: batch.map((s) => ({
         screenshotId: s.id,
         timestamp: s.timestamp,
-        summary: 'Screenshot captured',
+        summary: '已截取屏幕截图',
         topics: [],
-        activeApp: 'Unknown',
+        activeApp: '未知',
       })),
     };
   }

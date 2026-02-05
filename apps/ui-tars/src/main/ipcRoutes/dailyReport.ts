@@ -48,22 +48,46 @@ export const dailyReportRoute = t.router({
     .input<{ date?: string }>()
     .handle(async ({ input }) => {
       try {
-        logger.log('dailyReportRoute: Starting report generation for', input.date);
+        logger.log(
+          'dailyReportRoute: Starting report generation for',
+          input.date,
+        );
         const report = await DailyReportService.getInstance().generateReport(
           input.date,
         );
-        logger.log('dailyReportRoute: Report generated', report ? 'success' : 'null');
+        logger.log(
+          'dailyReportRoute: Report generated',
+          report ? 'success' : 'null',
+        );
         if (report) {
-          logger.log('dailyReportRoute: Report has', report.appUsage?.length, 'apps,', report.activities?.length, 'activities');
+          logger.log(
+            'dailyReportRoute: Report has',
+            report.appUsage?.length,
+            'apps,',
+            report.activities?.length,
+            'activities',
+          );
           // Log the report structure to debug serialization
-          logger.log('dailyReportRoute: Report JSON test:', JSON.stringify(report).substring(0, 500));
+          logger.log(
+            'dailyReportRoute: Report JSON test:',
+            JSON.stringify(report).substring(0, 500),
+          );
         }
         const result = { success: true, report };
-        logger.log('dailyReportRoute: Returning result, success:', result.success, 'hasReport:', !!result.report);
+        logger.log(
+          'dailyReportRoute: Returning result, success:',
+          result.success,
+          'hasReport:',
+          !!result.report,
+        );
         return result;
       } catch (error) {
         logger.error('dailyReportRoute: Failed to generate report', error);
-        const errorResult = { success: false, error: String(error), report: null };
+        const errorResult = {
+          success: false,
+          error: String(error),
+          report: null,
+        };
         logger.log('dailyReportRoute: Returning error result');
         return errorResult;
       }

@@ -16,7 +16,7 @@ export function ActivityTimeline({
   agentInteractions,
 }: ActivityTimelineProps) {
   const formatTime = (timestamp: number): string => {
-    return new Date(timestamp).toLocaleTimeString('en-US', {
+    return new Date(timestamp).toLocaleTimeString('zh-CN', {
       hour: '2-digit',
       minute: '2-digit',
     });
@@ -39,7 +39,7 @@ export function ActivityTimeline({
 
   return (
     <div className="rounded-lg border p-4">
-      <h3 className="text-lg font-medium mb-4">Activity Timeline</h3>
+      <h3 className="text-lg font-medium mb-4">活动时间线</h3>
 
       <div className="space-y-6">
         {/* Activity Analysis */}
@@ -47,7 +47,7 @@ export function ActivityTimeline({
           <div>
             <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
               <Clock className="h-4 w-4" />
-              Activity Analysis
+              活动分析
             </h4>
             <div className="space-y-3">
               {activities.map((activity, index) => (
@@ -84,7 +84,7 @@ export function ActivityTimeline({
           <div>
             <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
               <Bot className="h-4 w-4" />
-              Agent Interactions
+              智能体交互
             </h4>
             <div className="space-y-2">
               {agentInteractions.map((interaction, index) => (
@@ -110,7 +110,7 @@ export function ActivityTimeline({
         {/* Empty State */}
         {activities.length === 0 && agentInteractions.length === 0 && (
           <div className="text-center text-gray-500 py-8">
-            No activity data available for this period
+            该时段暂无活动数据
           </div>
         )}
       </div>

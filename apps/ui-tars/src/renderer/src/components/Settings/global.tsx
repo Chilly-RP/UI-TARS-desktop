@@ -14,6 +14,7 @@ import {
   Settings,
   Bug,
   Mic,
+  CalendarCheck,
 } from 'lucide-react';
 import {
   Dialog,
@@ -33,6 +34,7 @@ import { LocalBrowserSettings } from './category/localBrowser';
 import { ReportSettings } from './category/report';
 import { GeneralSettings } from './category/general';
 import { DebugSettings } from './category/debug';
+import { DailyReportSettingsPanel } from './category/dailyReport';
 
 interface GlobalSettingsStore {
   isOpen: boolean;
@@ -104,6 +106,13 @@ export const GlobalSettings = () => {
                 Report Settings
               </TabsTrigger>
               <TabsTrigger
+                value="daily-report"
+                className="w-full justify-start gap-2 px-2 py-1.5 mb-2 !shadow-none font-normal data-[state=active]:font-medium data-[state=active]:bg-accent data-[state=active]:text-accent-foreground hover:bg-accent/50"
+              >
+                <CalendarCheck strokeWidth={2} />
+                Daily Report
+              </TabsTrigger>
+              <TabsTrigger
                 value="general"
                 className="w-full justify-start gap-2 px-2 py-1.5 mb-2 !shadow-none font-normal data-[state=active]:font-medium data-[state=active]:bg-accent data-[state=active]:text-accent-foreground hover:bg-accent/50"
               >
@@ -167,6 +176,11 @@ export const GlobalSettings = () => {
               <h2 className="text-xl font-semibold mb-3">Report Settings</h2>
               <Separator className="mb-4" />
               <ReportSettings />
+            </TabsContent>
+            <TabsContent value="daily-report" className="mt-0">
+              <ScrollArea className="h-[calc(80vh-48px)]">
+                <DailyReportSettingsPanel />
+              </ScrollArea>
             </TabsContent>
             <TabsContent value="general" className="mt-0">
               <h2 className="text-xl font-semibold mb-3">General Settings</h2>

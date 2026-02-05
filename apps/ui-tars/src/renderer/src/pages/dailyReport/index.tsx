@@ -4,7 +4,6 @@
  */
 import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, RefreshCw, Settings } from 'lucide-react';
-import { useNavigate } from 'react-router';
 
 import { api } from '@renderer/api';
 import { DailyReport } from '@main/store/types';
@@ -15,9 +14,16 @@ import { DragArea } from '@renderer/components/Common/drag';
 import { ReportSummary } from '@renderer/components/DailyReport/ReportSummary';
 import { AppUsageChart } from '@renderer/components/DailyReport/AppUsageChart';
 import { ActivityTimeline } from '@renderer/components/DailyReport/ActivityTimeline';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@renderer/components/ui/dialog';
+import { DailyReportSettingsPanel } from '@renderer/components/Settings/category/dailyReport';
 
 export default function DailyReportPage() {
-  const navigate = useNavigate();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState(() => {
     const today = new Date();
     return today.toISOString().split('T')[0];
@@ -86,7 +92,10 @@ export default function DailyReportPage() {
     try {
       console.log('handleGenerateReport: Calling API for date', currentDate);
       const result = await api.generateDailyReport({ date: currentDate });
-      console.log('handleGenerateReport: Received result', JSON.stringify(result).substring(0, 500));
+      console.log(
+        'handleGenerateReport: Received result',
+        JSON.stringify(result).substring(0, 500),
+      );
       if (result.success && result.report) {
         console.log('handleGenerateReport: Saving report to IndexedDB');
         // Save to IndexedDB
@@ -114,6 +123,10 @@ export default function DailyReportPage() {
     setCurrentDate(date.toISOString().split('T')[0]);
   };
 
+  const goToToday = () => {
+    setCurrentDate(new Date().toISOString().split('T')[0]);
+  };
+
   const isToday = currentDate === new Date().toISOString().split('T')[0];
   const isFuture = new Date(currentDate) > new Date();
 
@@ -124,7 +137,7 @@ export default function DailyReportPage() {
       {/* Header */}
       <div className="border-b px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <h1 className="text-xl font-semibold">Daily Report</h1>
+          <h1 className="text-xl font-semibold">每日报告</h1>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -144,6 +157,14 @@ export default function DailyReportPage() {
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={goToToday}
+              disabled={isToday}
+            >
+              今天
+            </Button>
           </div>
         </div>
 
@@ -156,17 +177,27 @@ export default function DailyReportPage() {
             <RefreshCw
               className={`h-4 w-4 mr-2 ${generating ? 'animate-spin' : ''}`}
             />
-            {generating ? 'Generating...' : 'Generate Report'}
+            {generating ? '生成中...' : '生成报告'}
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate('/settings')}
+            onClick={() => setSettingsOpen(true)}
           >
             <Settings className="h-4 w-4" />
           </Button>
         </div>
       </div>
+
+      {/* Settings Dialog */}
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>每日报告设置</DialogTitle>
+          </DialogHeader>
+          <DailyReportSettingsPanel />
+        </DialogContent>
+      </Dialog>
 
       {/* Content */}
       <ScrollArea className="flex-1">
@@ -186,13 +217,13 @@ export default function DailyReportPage() {
             </>
           ) : (
             <div className="flex flex-col items-center justify-center py-20 text-gray-500">
-              <p className="mb-4">No report available for this date</p>
+              <p className="mb-4">该日期暂无报告</p>
               {!isFuture && (
                 <Button onClick={handleGenerateReport} disabled={generating}>
                   <RefreshCw
                     className={`h-4 w-4 mr-2 ${generating ? 'animate-spin' : ''}`}
                   />
-                  Generate Report
+                  生成报告
                 </Button>
               )}
             </div>
