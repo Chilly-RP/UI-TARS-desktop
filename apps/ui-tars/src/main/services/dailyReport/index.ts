@@ -282,6 +282,17 @@ export class DailyReportService {
   getScreenshotBase64(filePath: string): string | null {
     return this.screenshotCapture.getScreenshotAsBase64(filePath);
   }
+
+  /**
+   * Delete screenshots by IDs
+   */
+  deleteScreenshots(ids: string[]): {
+    success: boolean;
+    deletedCount: number;
+    errors: string[];
+  } {
+    return this.screenshotCapture.deleteScreenshotsByIds(ids);
+  }
 }
 
 // Export sub-services for direct access if needed

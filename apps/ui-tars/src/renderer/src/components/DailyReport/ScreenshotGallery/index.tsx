@@ -14,11 +14,17 @@ interface CapturedScreenshot {
 interface ScreenshotGalleryProps {
   screenshots: CapturedScreenshot[];
   onScreenshotClick: (screenshot: CapturedScreenshot, index: number) => void;
+  isSelectionMode?: boolean;
+  selectedIds?: Set<string>;
+  onSelectionChange?: (id: string, selected: boolean) => void;
 }
 
 export function ScreenshotGallery({
   screenshots,
   onScreenshotClick,
+  isSelectionMode = false,
+  selectedIds = new Set(),
+  onSelectionChange,
 }: ScreenshotGalleryProps) {
   // Sort by timestamp descending (newest first)
   const sortedScreenshots = [...screenshots].sort(
@@ -40,6 +46,9 @@ export function ScreenshotGallery({
           key={screenshot.id}
           screenshot={screenshot}
           onClick={() => onScreenshotClick(screenshot, index)}
+          isSelectionMode={isSelectionMode}
+          isSelected={selectedIds.has(screenshot.id)}
+          onSelectionChange={onSelectionChange}
         />
       ))}
     </div>

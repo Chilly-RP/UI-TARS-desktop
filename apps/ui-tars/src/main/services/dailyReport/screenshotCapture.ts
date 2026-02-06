@@ -250,6 +250,51 @@ export class ScreenshotCaptureService {
     }
   }
 
+  deleteScreenshotsByIds(ids: string[]): {
+    success: boolean;
+    deletedCount: number;
+    errors: string[];
+  } {
+    const errors: string[] = [];
+    let deletedCount = 0;
+
+    for (const id of ids) {
+      const screenshot = this.capturedScreenshots.find((s) => s.id === id);
+      if (!screenshot) {
+        errors.push(`Screenshot with id ${id} not found`);
+        continue;
+      }
+
+      try {
+        if (fs.existsSync(screenshot.filePath)) {
+          fs.unlinkSync(screenshot.filePath);
+          logger.log(
+            `ScreenshotCaptureService: Deleted screenshot file ${screenshot.filePath}`,
+          );
+        }
+        deletedCount++;
+      } catch (error) {
+        errors.push(
+          `Failed to delete ${screenshot.filePath}: ${String(error)}`,
+        );
+        logger.error(
+          'ScreenshotCaptureService: Failed to delete screenshot',
+          error,
+        );
+      }
+    }
+
+    // 从内存列表中移除
+    this.capturedScreenshots = this.capturedScreenshots.filter(
+      (s) => !ids.includes(s.id),
+    );
+
+    logger.log(
+      `ScreenshotCaptureService: Deleted ${deletedCount} screenshots, ${errors.length} errors`,
+    );
+    return { success: errors.length === 0, deletedCount, errors };
+  }
+
   isCapturing(): boolean {
     return this.isRunning;
   }

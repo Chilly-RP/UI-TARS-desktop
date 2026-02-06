@@ -132,6 +132,18 @@ export const dailyReportRoute = t.router({
       );
     }),
 
+  // Delete screenshots by IDs
+  deleteScreenshots: t.procedure
+    .input<{ ids: string[] }>()
+    .handle(async ({ input }) => {
+      try {
+        return DailyReportService.getInstance().deleteScreenshots(input.ids);
+      } catch (error) {
+        logger.error('dailyReportRoute: Failed to delete screenshots', error);
+        return { success: false, deletedCount: 0, errors: [String(error)] };
+      }
+    }),
+
   // Add agent interaction (called from agent runner)
   addAgentInteraction: t.procedure
     .input<{ instruction: string; status: string; timestamp: number }>()
