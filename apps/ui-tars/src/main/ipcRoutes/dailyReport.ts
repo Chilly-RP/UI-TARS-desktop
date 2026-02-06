@@ -123,6 +123,15 @@ export const dailyReportRoute = t.router({
       return DailyReportService.getInstance().getScreenshotsForDate(input.date);
     }),
 
+  // Get screenshot as base64
+  getScreenshotBase64: t.procedure
+    .input<{ filePath: string }>()
+    .handle(async ({ input }) => {
+      return DailyReportService.getInstance().getScreenshotBase64(
+        input.filePath,
+      );
+    }),
+
   // Add agent interaction (called from agent runner)
   addAgentInteraction: t.procedure
     .input<{ instruction: string; status: string; timestamp: number }>()

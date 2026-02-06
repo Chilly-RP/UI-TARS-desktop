@@ -2,7 +2,7 @@
  * Copyright (c) 2025 Bytedance, Inc. and its affiliates.
  * SPDX-License-Identifier: Apache-2.0
  */
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import {
@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@renderer/components/ui/dialog';
 import { Button } from '@renderer/components/ui/button';
+import { api } from '@renderer/api';
 
 interface CapturedScreenshot {
   id: string;
@@ -50,6 +51,39 @@ export function ScreenshotPreview({
   hasPrevious = false,
   hasNext = false,
 }: ScreenshotPreviewProps) {
+  const [imageData, setImageData] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!screenshot || !open) {
+      setImageData(null);
+      return;
+    }
+
+    let mounted = true;
+    setLoading(true);
+
+    const loadImage = async () => {
+      try {
+        const base64 = await api.getScreenshotBase64({
+          filePath: screenshot.filePath,
+        });
+        if (mounted && base64) {
+          setImageData(`data:image/jpeg;base64,${base64}`);
+        }
+      } catch (error) {
+        console.error('Failed to load screenshot:', error);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    loadImage();
+    return () => {
+      mounted = false;
+    };
+  }, [screenshot?.filePath, open]);
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (!open) return;
@@ -80,7 +114,7 @@ export function ScreenshotPreview({
         <DialogHeader>
           <DialogTitle>{formatDateTime(screenshot.timestamp)}</DialogTitle>
         </DialogHeader>
-        <div className="relative flex items-center justify-center">
+        <div className="relative flex items-center justify-center min-h-[200px]">
           {hasPrevious && onPrevious && (
             <Button
               variant="ghost"
@@ -91,11 +125,21 @@ export function ScreenshotPreview({
               <ChevronLeft className="h-6 w-6" />
             </Button>
           )}
-          <img
-            src={`file://${screenshot.filePath}`}
-            alt={`截图 ${formatDateTime(screenshot.timestamp)}`}
-            className="max-w-full max-h-[70vh] object-contain rounded-lg"
-          />
+          {loading ? (
+            <div className="flex items-center justify-center">
+              <div className="animate-spin h-8 w-8 border-2 border-gray-300 border-t-blue-500 rounded-full" />
+            </div>
+          ) : imageData ? (
+            <img
+              src={imageData}
+              alt={`截图 ${formatDateTime(screenshot.timestamp)}`}
+              className="max-w-full max-h-[70vh] object-contain rounded-lg"
+            />
+          ) : (
+            <div className="flex items-center justify-center text-gray-400">
+              加载失败
+            </div>
+          )}
           {hasNext && onNext && (
             <Button
               variant="ghost"

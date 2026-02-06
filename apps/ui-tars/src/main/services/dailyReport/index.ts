@@ -275,6 +275,13 @@ export class DailyReportService {
   getScreenshotsForDate(date: string) {
     return this.screenshotCapture.getScreenshotsByDate(date);
   }
+
+  /**
+   * Get screenshot as base64 string
+   */
+  getScreenshotBase64(filePath: string): string | null {
+    return this.screenshotCapture.getScreenshotAsBase64(filePath);
+  }
 }
 
 // Export sub-services for direct access if needed
