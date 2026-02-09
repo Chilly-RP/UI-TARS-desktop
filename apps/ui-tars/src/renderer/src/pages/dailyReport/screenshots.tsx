@@ -216,7 +216,7 @@ export default function ScreenshotGalleryPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate('/daily-report')}
+            onClick={() => navigate(`/daily-report?date=${currentDate}`)}
             title="返回"
           >
             <ArrowLeft className="h-4 w-4" />

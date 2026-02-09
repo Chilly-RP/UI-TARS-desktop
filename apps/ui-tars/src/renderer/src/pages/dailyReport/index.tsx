@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import {
   ChevronLeft,
   ChevronRight,
@@ -31,10 +31,12 @@ import { DailyReportSettingsPanel } from '@renderer/components/Settings/category
 
 export default function DailyReportPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState(() => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
+    const dateParam = searchParams.get('date');
+    if (dateParam) return dateParam;
+    return new Date().toISOString().split('T')[0];
   });
   const [report, setReport] = useState<DailyReport | null>(null);
   const [loading, setLoading] = useState(true);
