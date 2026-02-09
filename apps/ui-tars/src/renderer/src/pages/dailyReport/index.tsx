@@ -11,6 +11,7 @@ import {
   Settings,
   Images,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { api } from '@renderer/api';
 import { DailyReport } from '@main/store/types';
@@ -28,6 +29,13 @@ import {
   DialogTitle,
 } from '@renderer/components/ui/dialog';
 import { DailyReportSettingsPanel } from '@renderer/components/Settings/category/dailyReport';
+
+function formatDuration(ms: number): string {
+  const minutes = Math.floor(ms / 60000);
+  const seconds = Math.floor((ms % 60000) / 1000);
+  if (minutes > 0) return `${minutes} 分 ${seconds} 秒`;
+  return `${seconds} 秒`;
+}
 
 export default function DailyReportPage() {
   const navigate = useNavigate();
@@ -114,9 +122,18 @@ export default function DailyReportPage() {
         console.log('handleGenerateReport: Report saved and set');
       } else {
         console.warn('handleGenerateReport: No report in result', result);
+        const res = result as { reason?: string; dataStats?: { totalDurationMs: number } };
+        if (res.reason === 'insufficient_data' && res.dataStats) {
+          toast.error('数据不足，无法生成报告', {
+            description: `当前仅记录了 ${formatDuration(res.dataStats.totalDurationMs)}，需要至少 5 分钟`,
+          });
+        } else {
+          toast.error('无法生成报告');
+        }
       }
     } catch (error) {
       console.error('Failed to generate report:', error);
+      toast.error('生成报告失败');
     } finally {
       setGenerating(false);
       console.log('=== handleGenerateReport END ===');
@@ -239,12 +256,17 @@ export default function DailyReportPage() {
             <div className="flex flex-col items-center justify-center py-20 text-gray-500">
               <p className="mb-4">该日期暂无报告</p>
               {!isFuture && (
-                <Button onClick={handleGenerateReport} disabled={generating}>
-                  <RefreshCw
-                    className={`h-4 w-4 mr-2 ${generating ? 'animate-spin' : ''}`}
-                  />
-                  生成报告
-                </Button>
+                <>
+                  <Button onClick={handleGenerateReport} disabled={generating}>
+                    <RefreshCw
+                      className={`h-4 w-4 mr-2 ${generating ? 'animate-spin' : ''}`}
+                    />
+                    生成报告
+                  </Button>
+                  <p className="mt-3 text-xs text-gray-400">
+                    需要至少 5 分钟的应用使用记录才能生成报告
+                  </p>
+                </>
               )}
             </div>
           )}

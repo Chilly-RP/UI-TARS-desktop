@@ -285,6 +285,14 @@ export class DailyReportService {
   }
 
   /**
+   * Check data sufficiency for report generation
+   */
+  checkDataSufficiency(date?: string) {
+    const targetDate = date || this.reportGenerator.getCurrentDateString();
+    return this.reportGenerator.checkDataSufficiency(targetDate);
+  }
+
+  /**
    * Delete screenshots by IDs
    */
   deleteScreenshots(ids: string[]): {

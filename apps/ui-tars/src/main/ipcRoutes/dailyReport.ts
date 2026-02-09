@@ -73,14 +73,24 @@ export const dailyReportRoute = t.router({
             JSON.stringify(report).substring(0, 500),
           );
         }
-        const result = { success: true, report };
+        if (report) {
+          logger.log('dailyReportRoute: Returning successful result');
+          return { success: true, report };
+        }
+
+        // Report is null — attach data sufficiency stats
+        const dataStats =
+          DailyReportService.getInstance().checkDataSufficiency(input.date);
         logger.log(
-          'dailyReportRoute: Returning result, success:',
-          result.success,
-          'hasReport:',
-          !!result.report,
+          'dailyReportRoute: Returning insufficient data result',
+          dataStats,
         );
-        return result;
+        return {
+          success: true,
+          report: null,
+          reason: 'insufficient_data' as const,
+          dataStats,
+        };
       } catch (error) {
         logger.error('dailyReportRoute: Failed to generate report', error);
         const errorResult = {

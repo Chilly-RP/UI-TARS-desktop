@@ -203,12 +203,29 @@ export class ReportGenerator {
   }
 
   /**
+   * Check data sufficiency for report generation, returning structured stats
+   */
+  checkDataSufficiency(date: string): {
+    hasEnough: boolean;
+    totalDurationMs: number;
+    requiredDurationMs: number;
+    recordCount: number;
+  } {
+    const records = DailyReportStore.getAppUsageRecordsByDate(date);
+    const totalDurationMs = records.reduce((sum, r) => sum + r.duration, 0);
+    const requiredDurationMs = 5 * 60 * 1000;
+    return {
+      hasEnough: totalDurationMs >= requiredDurationMs,
+      totalDurationMs,
+      requiredDurationMs,
+      recordCount: records.length,
+    };
+  }
+
+  /**
    * Check if enough data exists to generate a report
    */
   hasEnoughData(date: string): boolean {
-    const records = DailyReportStore.getAppUsageRecordsByDate(date);
-    // Require at least 5 minutes of tracked app usage
-    const totalDuration = records.reduce((sum, r) => sum + r.duration, 0);
-    return totalDuration >= 5 * 60 * 1000;
+    return this.checkDataSufficiency(date).hasEnough;
   }
 }
