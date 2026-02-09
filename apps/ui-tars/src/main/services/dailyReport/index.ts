@@ -17,6 +17,7 @@ import { ScreenshotCaptureService } from './screenshotCapture';
 import { VLMAnalyzer } from './vlmAnalyzer';
 import { ReportGenerator } from './reportGenerator';
 import { NotificationScheduler } from './notificationScheduler';
+import { getLocalDateString } from './dateUtils';
 
 export class DailyReportService {
   private static instance: DailyReportService | null = null;
@@ -186,7 +187,7 @@ export class DailyReportService {
 
     // Get agent interactions for today
     const todayInteractions = this.agentInteractions.filter((i) => {
-      const interactionDate = new Date(i.timestamp).toISOString().split('T')[0];
+      const interactionDate = getLocalDateString(i.timestamp);
       return interactionDate === targetDate;
     });
 

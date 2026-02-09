@@ -14,6 +14,7 @@ import {
   AppUsageRecord,
 } from '@main/store/types';
 import { BatchAnalysisResult } from './vlmAnalyzer';
+import { getLocalDateString } from './dateUtils';
 
 export class ReportGenerator {
   /**
@@ -39,11 +40,16 @@ export class ReportGenerator {
       `ReportGenerator: Filtered ${appUsageRecords.length - filteredRecords.length} excluded apps from ${appUsageRecords.length} total records`,
     );
 
+    // Clamp records to the target date to handle legacy data stored with UTC dates
+    const clampedRecords = filteredRecords.map((r) =>
+      this.clampRecordToDate(r, date),
+    );
+
     // Calculate app usage summary
-    const appUsage = this.calculateAppUsage(filteredRecords);
+    const appUsage = this.calculateAppUsage(clampedRecords);
 
     // Calculate total screen time
-    const totalScreenTime = filteredRecords.reduce(
+    const totalScreenTime = clampedRecords.reduce(
       (sum, record) => sum + record.duration,
       0,
     );
@@ -171,11 +177,29 @@ export class ReportGenerator {
   }
 
   /**
-   * Get the current date string in YYYY-MM-DD format
+   * Get the current date string in YYYY-MM-DD format (local timezone)
    */
   getCurrentDateString(): string {
-    const now = new Date();
-    return now.toISOString().split('T')[0];
+    return getLocalDateString(Date.now());
+  }
+
+  /**
+   * Clamp a record's duration to only count time within the specified local date.
+   * This handles legacy data that may have been stored with UTC-based date strings.
+   */
+  private clampRecordToDate(
+    record: AppUsageRecord,
+    date: string,
+  ): AppUsageRecord {
+    const [year, month, day] = date.split('-').map(Number);
+    const dayStart = new Date(year, month - 1, day).getTime();
+    const dayEnd = new Date(year, month - 1, day + 1).getTime();
+
+    const clampedStart = Math.max(record.startTime, dayStart);
+    const clampedEnd = Math.min(record.endTime, dayEnd);
+    const clampedDuration = Math.max(0, clampedEnd - clampedStart);
+
+    return { ...record, duration: clampedDuration };
   }
 
   /**

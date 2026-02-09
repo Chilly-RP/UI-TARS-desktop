@@ -11,6 +11,8 @@ import { logger } from '@main/logger';
 import { DailyReportStore } from '@main/store/dailyReportStore';
 import { AppUsageRecord } from '@main/store/types';
 
+import { getLocalDateString } from './dateUtils';
+
 const execFileAsync = promisify(execFile);
 
 interface ActiveWindowResult {
@@ -162,25 +164,53 @@ export class AppTrackerService {
       return;
     }
 
-    const record: AppUsageRecord = {
-      id: uuidv4(),
-      appName: this.currentApp.appName,
-      windowTitle: this.currentApp.windowTitle,
-      startTime: this.currentAppStartTime,
-      endTime,
-      duration,
-      date: this.getDateString(this.currentAppStartTime),
-    };
+    // Split records at midnight boundaries so each record belongs to a single local date
+    const segments = this.splitByDate(this.currentAppStartTime, endTime);
+    for (const { start, end, date } of segments) {
+      const record: AppUsageRecord = {
+        id: uuidv4(),
+        appName: this.currentApp.appName,
+        windowTitle: this.currentApp.windowTitle,
+        startTime: start,
+        endTime: end,
+        duration: end - start,
+        date,
+      };
 
-    DailyReportStore.addAppUsageRecord(record);
-    logger.log(
-      `AppTrackerService: Saved usage for ${record.appName}: ${duration}ms`,
-    );
+      DailyReportStore.addAppUsageRecord(record);
+      logger.log(
+        `AppTrackerService: Saved usage for ${record.appName}: ${end - start}ms (date: ${date})`,
+      );
+    }
   }
 
-  private getDateString(timestamp: number): string {
-    const date = new Date(timestamp);
-    return date.toISOString().split('T')[0]; // YYYY-MM-DD
+  private splitByDate(
+    startTime: number,
+    endTime: number,
+  ): Array<{ start: number; end: number; date: string }> {
+    const results: Array<{ start: number; end: number; date: string }> = [];
+    let current = startTime;
+
+    while (current < endTime) {
+      const currentDate = new Date(current);
+      // Next local midnight
+      const nextMidnight = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        currentDate.getDate() + 1,
+      ).getTime();
+      const segmentEnd = Math.min(nextMidnight, endTime);
+
+      results.push({
+        start: current,
+        end: segmentEnd,
+        date: getLocalDateString(current),
+      });
+
+      current = segmentEnd;
+    }
+
+    return results;
   }
 
   isTracking(): boolean {

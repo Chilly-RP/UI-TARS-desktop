@@ -11,6 +11,8 @@ import { logger } from '@main/logger';
 import { DailyReportStore } from '@main/store/dailyReportStore';
 import { getScreenSize } from '@main/utils/screen';
 
+import { getLocalDateString } from './dateUtils';
+
 export interface CapturedScreenshot {
   id: string;
   filePath: string;
@@ -118,7 +120,7 @@ export class ScreenshotCaptureService {
 
       // Generate file path
       const timestamp = Date.now();
-      const date = this.getDateString(timestamp);
+      const date = getLocalDateString(timestamp);
       const id = uuidv4();
       const filename = `${date}_${timestamp}_${id}.jpg`;
       const filePath = path.join(this.screenshotDir, filename);
@@ -144,11 +146,6 @@ export class ScreenshotCaptureService {
       );
       return null;
     }
-  }
-
-  private getDateString(timestamp: number): string {
-    const date = new Date(timestamp);
-    return date.toISOString().split('T')[0]; // YYYY-MM-DD
   }
 
   getScreenshotsByDate(date: string): CapturedScreenshot[] {

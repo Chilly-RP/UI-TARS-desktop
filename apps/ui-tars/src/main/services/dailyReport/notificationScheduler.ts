@@ -7,6 +7,8 @@ import { Notification, BrowserWindow } from 'electron';
 import { logger } from '@main/logger';
 import { DailyReportStore } from '@main/store/dailyReportStore';
 
+import { getLocalDateString } from './dateUtils';
+
 export type NotificationCallback = () => void;
 
 export class NotificationScheduler {
@@ -63,7 +65,7 @@ export class NotificationScheduler {
     }
 
     const now = new Date();
-    const currentDate = now.toISOString().split('T')[0];
+    const currentDate = getLocalDateString(now.getTime());
     const currentTime = this.formatTime(now);
 
     // Check if we already notified today
