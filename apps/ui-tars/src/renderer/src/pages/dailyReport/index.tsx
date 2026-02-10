@@ -10,6 +10,7 @@ import {
   RefreshCw,
   Settings,
   Images,
+  Download,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -49,6 +50,7 @@ export default function DailyReportPage() {
   const [report, setReport] = useState<DailyReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   // Load report for current date
   useEffect(() => {
@@ -140,6 +142,25 @@ export default function DailyReportPage() {
     }
   };
 
+  const handleExportPDF = async () => {
+    setExporting(true);
+    try {
+      const result = await api.exportDailyReportPDF({ date: currentDate });
+      if (result.success) {
+        toast.success('PDF 导出成功', {
+          description: result.filePath,
+        });
+      } else if (result.error !== 'User cancelled') {
+        toast.error('PDF 导出失败');
+      }
+    } catch (error) {
+      console.error('Failed to export PDF:', error);
+      toast.error('PDF 导出失败');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const navigateDate = (direction: 'prev' | 'next') => {
     const date = new Date(currentDate);
     if (direction === 'prev') {
@@ -206,6 +227,18 @@ export default function DailyReportPage() {
             />
             {generating ? '生成中...' : '生成报告'}
           </Button>
+          {report && (
+            <Button
+              variant="outline"
+              onClick={handleExportPDF}
+              disabled={exporting}
+            >
+              <Download
+                className={`h-4 w-4 mr-2 ${exporting ? 'animate-pulse' : ''}`}
+              />
+              {exporting ? '导出中...' : '导出 PDF'}
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"

@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import { initIpc } from '@ui-tars/electron-ipc/main';
+import { BrowserWindow, dialog } from 'electron';
+import * as fs from 'fs';
 
 import { logger } from '@main/logger';
 import { DailyReportService } from '@main/services/dailyReport';
@@ -179,5 +181,38 @@ export const dailyReportRoute = t.router({
         timestamp: input.timestamp,
       });
       return { success: true };
+    }),
+
+  // Export daily report as PDF
+  exportDailyReportPDF: t.procedure
+    .input<{ date: string }>()
+    .handle(async ({ input }) => {
+      try {
+        const focusedWindow = BrowserWindow.getFocusedWindow();
+        if (!focusedWindow) {
+          return { success: false, error: 'No focused window' };
+        }
+
+        const { canceled, filePath } = await dialog.showSaveDialog(focusedWindow, {
+          defaultPath: `日报-${input.date}.pdf`,
+          filters: [{ name: 'PDF', extensions: ['pdf'] }],
+        });
+
+        if (canceled || !filePath) {
+          return { success: false, error: 'User cancelled' };
+        }
+
+        const pdfData = await focusedWindow.webContents.printToPDF({
+          landscape: false,
+          printBackground: true,
+          pageSize: 'A4',
+        });
+
+        fs.writeFileSync(filePath, new Uint8Array(pdfData));
+        return { success: true, filePath };
+      } catch (error) {
+        logger.error('dailyReportRoute: Failed to export PDF', error);
+        return { success: false, error: String(error) };
+      }
     }),
 });

@@ -59,9 +59,16 @@ export class VLMAnalyzer {
 
     const results: BatchAnalysisResult[] = [];
 
-    for (const batch of batches) {
+    for (let batchIdx = 0; batchIdx < batches.length; batchIdx++) {
       try {
-        const batchResult = await this.analyzeBatch(batch, getBase64Fn, terminalContext, insights);
+        const batchResult = await this.analyzeBatch(
+          batches[batchIdx],
+          getBase64Fn,
+          terminalContext,
+          insights,
+          batchIdx,
+          batches.length,
+        );
         if (batchResult) {
           results.push(batchResult);
         }
@@ -106,6 +113,8 @@ export class VLMAnalyzer {
     getBase64Fn: (filePath: string) => string | null,
     terminalContext?: TerminalActivityContext,
     insights?: DeepInsights,
+    batchIndex: number = 0,
+    totalBatches: number = 1,
   ): Promise<BatchAnalysisResult | null> {
     const settings = SettingStore.getStore();
 
@@ -176,7 +185,12 @@ export class VLMAnalyzer {
       if (topProjects.length > 0) {
         const projectLines = topProjects.map((p) => {
           const mins = Math.floor(p.totalDuration / (1000 * 60));
-          return `- ${p.projectName}（${mins}分钟，涉及: ${p.apps.join('、')}）`;
+          let line = `- ${p.projectName}（${mins}分钟，涉及: ${p.apps.join('、')}`;
+          if (p.subModules && p.subModules.length > 0) {
+            line += `，子模块: ${p.subModules.join('、')}`;
+          }
+          line += '）';
+          return line;
         });
         contextText += `\n\n用户今日的项目上下文：\n${projectLines.join('\n')}`;
       }
@@ -205,16 +219,21 @@ export class VLMAnalyzer {
       }
     }
 
+    const batchHint = totalBatches > 1
+      ? `\n\n这是第 ${batchIndex + 1}/${totalBatches} 批截图。`
+      : '';
+
     const prompt = `你是一个工作效率分析专家。分析以下 ${imageContents.length} 张来自电脑用户日常活动的截图，结合上下文信息，提供深度工作洞察。
-${contextText}
+${contextText}${batchHint}
 
 请分析每张截图并提供结构化洞察。
 
 重要：
 - 对于每张截图的 activity 描述，请尽量具体（如具体文件名、页面内容、操作类型），不要只说"编码"或"浏览"
 - 根据终端命令的完整内容推断用户的具体活动意图
-- overallSummary 应该像一个同事在分享今天做了什么，而不是数据罗列
-- blockerSignal 请识别截图中可见的错误信息、异常堆栈、构建失败等
+- overallSummary 聚焦本批截图特有的工作内容，重点描述"做了什么"而非"在用什么工具"
+- keyAccomplishments 请关联到具体文件或功能模块
+- blockerSignal 请包含完整的错误信息文本（如截图中可见），识别错误信息、异常堆栈、构建失败等
 
 请用中文回复，使用以下 JSON 格式：
 {
@@ -229,8 +248,8 @@ ${contextText}
       "blockerSignal": "截图中可见的错误/异常信息，或null"
     }
   ],
-  "overallSummary": "今日工作的叙事性总结",
-  "keyAccomplishments": ["完成的关键事项"],
+  "overallSummary": "本批截图的叙事性总结",
+  "keyAccomplishments": ["完成的关键事项（关联具体文件/模块）"],
   "knowledgeExplored": ["探索的技术/知识领域"],
   "blockers": ["遇到的困难或阻塞"],
   "mainTopics": ["主要话题1", "主要话题2"]

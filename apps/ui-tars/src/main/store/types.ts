@@ -107,6 +107,7 @@ export interface ProjectContext {
   totalDuration: number;
   percentage: number;
   apps: string[];
+  subModules?: string[];
 }
 
 export interface DeepWorkSession {
@@ -115,12 +116,15 @@ export interface DeepWorkSession {
   duration: number;
   primaryApp: string;
   project?: string;
+  keyOutput?: string;
+  filesWorkedOn?: string[];
 }
 
 export interface FrustrationSignal {
-  type: 'rapid_switch' | 'repeated_search' | 'restart_loop';
+  type: 'rapid_switch' | 'repeated_search' | 'restart_loop' | 'error_search_sequence';
   description: string;
   timeRange: string;
+  resolution?: string;
 }
 
 export interface FocusMetrics {
@@ -130,6 +134,7 @@ export interface FocusMetrics {
   contextSwitchesPerHour: number;
   distractionSources: { appName: string; interruptions: number }[];
   frustrationSignals: FrustrationSignal[];
+  topSwitchPairs?: { pair: string; count: number }[];
 }
 
 export interface DeepInsights {
@@ -144,6 +149,9 @@ export interface StructuredSummary {
   blockers: string[];
   efficiencyHighlights: string[];
   suggestions: string[];
+  milestones?: string[];
+  attentionDrain?: { topSwitchPair: string; switchCount: number; suggestion: string }[];
+  unresolvedErrors?: string[];
 }
 
 export interface DailyReport {

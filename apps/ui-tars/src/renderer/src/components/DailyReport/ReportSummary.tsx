@@ -16,6 +16,9 @@ import {
   AlertTriangle,
   Lightbulb,
   FolderGit2,
+  Target,
+  Repeat,
+  Bug,
 } from 'lucide-react';
 
 import { DailyReport } from '@main/store/types';
@@ -30,19 +33,21 @@ function CollapsibleSection({
   items,
   emptyText,
   colorClass,
+  defaultOpen,
 }: {
   title: string;
   icon: React.ReactNode;
   items: string[];
   emptyText: string;
   colorClass: string;
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(items.length > 0);
+  const [open, setOpen] = useState(defaultOpen ?? items.length > 0);
 
   return (
-    <div className="border rounded-lg overflow-hidden">
+    <div className="border rounded-lg overflow-hidden print:border-gray-300">
       <button
-        className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+        className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-gray-50 transition-colors print:hidden"
         onClick={() => setOpen(!open)}
       >
         {open ? (
@@ -56,22 +61,26 @@ function CollapsibleSection({
           <span className="ml-auto text-xs text-gray-400">{items.length}</span>
         )}
       </button>
-      {open && (
-        <div className="px-4 pb-3">
-          {items.length > 0 ? (
-            <ul className="space-y-1.5">
-              {items.map((item, i) => (
-                <li key={i} className="text-sm text-gray-600 flex items-start gap-2">
-                  <span className="text-gray-300 mt-1 shrink-0">-</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-gray-400">{emptyText}</p>
-          )}
-        </div>
-      )}
+      {/* Print-only header (always visible) */}
+      <div className="hidden print:flex items-center gap-2 px-4 py-3">
+        <span className={colorClass}>{icon}</span>
+        <span className="text-sm font-medium text-gray-700">{title}</span>
+      </div>
+      {/* Content: shown when open or in print mode */}
+      <div className={`px-4 pb-3 ${open ? '' : 'hidden'} print:!block`}>
+        {items.length > 0 ? (
+          <ul className="space-y-1.5">
+            {items.map((item, i) => (
+              <li key={i} className="text-sm text-gray-600 flex items-start gap-2">
+                <span className="text-gray-300 mt-1 shrink-0">-</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-gray-400">{emptyText}</p>
+        )}
+      </div>
     </div>
   );
 }
@@ -234,6 +243,35 @@ export function ReportSummary({ report }: ReportSummaryProps) {
             emptyText="暂无效率建议"
             colorClass="text-emerald-500"
           />
+          {structuredSummary.milestones && structuredSummary.milestones.length > 0 && (
+            <CollapsibleSection
+              title="今日里程碑"
+              icon={<Target className="h-4 w-4" />}
+              items={structuredSummary.milestones}
+              emptyText="暂无里程碑"
+              colorClass="text-indigo-500"
+            />
+          )}
+          {structuredSummary.attentionDrain && structuredSummary.attentionDrain.length > 0 && (
+            <CollapsibleSection
+              title="注意力损耗分析"
+              icon={<Repeat className="h-4 w-4" />}
+              items={structuredSummary.attentionDrain.map(
+                (d) => `${d.topSwitchPair}（${d.switchCount} 次切换）：${d.suggestion}`,
+              )}
+              emptyText="暂无注意力损耗数据"
+              colorClass="text-orange-500"
+            />
+          )}
+          {structuredSummary.unresolvedErrors && structuredSummary.unresolvedErrors.length > 0 && (
+            <CollapsibleSection
+              title="技术债/待办"
+              icon={<Bug className="h-4 w-4" />}
+              items={structuredSummary.unresolvedErrors}
+              emptyText="暂无技术债记录"
+              colorClass="text-rose-500"
+            />
+          )}
         </div>
       )}
     </div>

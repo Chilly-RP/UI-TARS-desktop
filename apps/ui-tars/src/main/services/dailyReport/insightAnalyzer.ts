@@ -62,6 +62,28 @@ const COMMUNICATION_APPS = new Set([
   'Zoom',
 ]);
 
+const PRODUCTIVITY_APPS = new Set([
+  'OneNote',
+  'Microsoft OneNote',
+  'Notion',
+  'Obsidian',
+  'Bear',
+  'Logseq',
+  'Joplin',
+  'Typora',
+  'Ulysses',
+  'Craft',
+  'Notes',
+  '备忘录',
+  'Evernote',
+  'Figma',
+  'Sketch',
+  'Linear',
+  'Jira',
+  'Trello',
+  'Miro',
+]);
+
 const BROWSER_APPS = new Set([
   'Google Chrome',
   'Safari',
@@ -72,6 +94,30 @@ const BROWSER_APPS = new Set([
   'Opera',
   'Chromium',
 ]);
+
+const SEARCH_KEYWORDS = [
+  'google.com/search',
+  'bing.com/search',
+  'baidu.com/s',
+  'stackoverflow.com/search',
+  'Search',
+];
+
+const ERROR_KEYWORDS = [
+  'error',
+  'failed',
+  'cannot',
+  'undefined',
+  'not found',
+  'exception',
+  'crash',
+  'fatal',
+  'ENOENT',
+  'EACCES',
+  'TypeError',
+  'ReferenceError',
+  'SyntaxError',
+];
 
 const DISTRACTION_TITLE_KEYWORDS = [
   'youtube.com',
@@ -88,11 +134,12 @@ const DISTRACTION_TITLE_KEYWORDS = [
   'twitch.tv',
 ];
 
-type AppCategory = 'work_dev' | 'terminal' | 'communication' | 'browser' | 'distraction' | 'other';
+type AppCategory = 'work_dev' | 'terminal' | 'communication' | 'browser' | 'distraction' | 'productivity' | 'other';
 
 function classifyApp(appName: string, windowTitle: string): AppCategory {
   if (WORK_DEV_APPS.has(appName)) return 'work_dev';
   if (TERMINAL_APPS.has(appName)) return 'terminal';
+  if (PRODUCTIVITY_APPS.has(appName)) return 'productivity';
   if (COMMUNICATION_APPS.has(appName)) return 'communication';
 
   if (BROWSER_APPS.has(appName)) {
@@ -118,7 +165,7 @@ function classifyApp(appName: string, windowTitle: string): AppCategory {
 }
 
 function isWorkCategory(cat: AppCategory): boolean {
-  return cat === 'work_dev' || cat === 'terminal';
+  return cat === 'work_dev' || cat === 'terminal' || cat === 'productivity';
 }
 
 export class InsightAnalyzer {
@@ -137,18 +184,23 @@ export class InsightAnalyzer {
    * Infer project contexts from window titles
    */
   private inferProjects(records: AppUsageRecord[]): ProjectContext[] {
-    const projectMap = new Map<string, { totalDuration: number; apps: Set<string> }>();
+    const projectMap = new Map<string, { totalDuration: number; apps: Set<string>; subModules: Set<string> }>();
 
     for (const record of records) {
       const project = this.extractProjectName(record.appName, record.windowTitle);
+      const subModule = this.extractSubModule(record.appName, record.windowTitle);
       const existing = projectMap.get(project);
       if (existing) {
         existing.totalDuration += record.duration;
         existing.apps.add(record.appName);
+        if (subModule) existing.subModules.add(subModule);
       } else {
+        const subModules = new Set<string>();
+        if (subModule) subModules.add(subModule);
         projectMap.set(project, {
           totalDuration: record.duration,
           apps: new Set([record.appName]),
+          subModules,
         });
       }
     }
@@ -161,6 +213,7 @@ export class InsightAnalyzer {
         totalDuration: data.totalDuration,
         percentage: totalDuration > 0 ? Math.round((data.totalDuration / totalDuration) * 100) : 0,
         apps: Array.from(data.apps),
+        subModules: data.subModules.size > 0 ? Array.from(data.subModules) : undefined,
       }))
       .sort((a, b) => b.totalDuration - a.totalDuration);
   }
@@ -231,6 +284,43 @@ export class InsightAnalyzer {
   }
 
   /**
+   * Extract sub-module name from window title (file name for IDEs, subdirectory for terminals)
+   */
+  private extractSubModule(appName: string, windowTitle: string): string | null {
+    if (!windowTitle) return null;
+
+    // IDE pattern: "file.ts - ProjectName — VS Code" → extract file name without extension
+    if (WORK_DEV_APPS.has(appName)) {
+      const emDashMatch = windowTitle.match(/^(.+?)\s*—\s*.+$/);
+      if (emDashMatch) {
+        const beforeDash = emDashMatch[1].trim();
+        const parts = beforeDash.split(' - ');
+        if (parts.length >= 2) {
+          // First part is the file path/name
+          const filePart = parts[0].trim();
+          // Extract directory from path like "src/services/dailyReport/insightAnalyzer.ts"
+          const pathMatch = filePart.match(/(?:^|\/)([^/]+)\/[^/]+\.\w+$/);
+          if (pathMatch) return pathMatch[1];
+          // Just the filename without extension
+          const fileMatch = filePart.match(/([^/]+)\.\w+$/);
+          if (fileMatch) return fileMatch[1];
+        }
+      }
+    }
+
+    // Terminal pattern: ~/project/subdir → extract subdir
+    if (TERMINAL_APPS.has(appName)) {
+      const subDirMatch = windowTitle.match(/~\/[^/\s]+\/([^/\s]+)/);
+      if (subDirMatch) return subDirMatch[1];
+
+      const absSubMatch = windowTitle.match(/\/(?:Users|home)\/[^/]+\/[^/]+\/([^/\s]+)/);
+      if (absSubMatch) return absSubMatch[1];
+    }
+
+    return null;
+  }
+
+  /**
    * Detect focus metrics: deep work sessions, context switches, distractions, frustration
    */
   private detectFocusMetrics(records: AppUsageRecord[]): FocusMetrics {
@@ -253,6 +343,7 @@ export class InsightAnalyzer {
     const contextSwitchesPerHour = this.calculateContextSwitches(records);
     const distractionSources = this.detectDistractions(records, deepWorkSessions);
     const frustrationSignals = this.detectFrustration(records);
+    const topSwitchPairs = this.calculateTopSwitchPairs(records);
 
     return {
       deepWorkSessions,
@@ -261,6 +352,7 @@ export class InsightAnalyzer {
       contextSwitchesPerHour,
       distractionSources,
       frustrationSignals,
+      topSwitchPairs,
     };
   }
 
@@ -455,8 +547,37 @@ export class InsightAnalyzer {
       }
     }
 
+    // Error-then-search sequence detection
+    for (let i = 0; i < records.length; i++) {
+      const record = records[i];
+      const category = classifyApp(record.appName, record.windowTitle);
+      if (!isWorkCategory(category)) continue;
+
+      const lowerTitle = record.windowTitle.toLowerCase();
+      const hasError = ERROR_KEYWORDS.some((kw) => lowerTitle.includes(kw.toLowerCase()));
+      if (!hasError) continue;
+
+      // Check if a browser search follows within 2 minutes
+      const searchWindow = record.endTime + 2 * 60 * 1000;
+      for (let j = i + 1; j < records.length && records[j].startTime <= searchWindow; j++) {
+        if (
+          BROWSER_APPS.has(records[j].appName) &&
+          SEARCH_KEYWORDS.some((kw) => records[j].windowTitle.toLowerCase().includes(kw.toLowerCase()))
+        ) {
+          const startTimeStr = new Date(record.startTime).toLocaleTimeString('zh-CN');
+          const endTimeStr = new Date(records[j].endTime).toLocaleTimeString('zh-CN');
+          signals.push({
+            type: 'error_search_sequence',
+            description: `在 ${record.appName} 中遇到错误后搜索解决方案`,
+            timeRange: `${startTimeStr} - ${endTimeStr}`,
+            resolution: '已尝试通过搜索解决',
+          });
+          break;
+        }
+      }
+    }
+
     // Repeated search detection: 3+ consecutive browser records with search keywords
-    const SEARCH_KEYWORDS = ['google.com/search', 'bing.com/search', 'baidu.com/s', 'stackoverflow.com/search', 'Search'];
     let consecutiveSearches = 0;
     let searchStart = 0;
 
@@ -494,5 +615,25 @@ export class InsightAnalyzer {
     }
 
     return signals;
+  }
+
+  /**
+   * Calculate top application switch pairs by frequency
+   */
+  private calculateTopSwitchPairs(records: AppUsageRecord[]): { pair: string; count: number }[] {
+    if (records.length < 2) return [];
+
+    const pairCounts = new Map<string, number>();
+    for (let i = 1; i < records.length; i++) {
+      if (records[i].appName !== records[i - 1].appName) {
+        const pair = [records[i - 1].appName, records[i].appName].sort().join(' ↔ ');
+        pairCounts.set(pair, (pairCounts.get(pair) || 0) + 1);
+      }
+    }
+
+    return Array.from(pairCounts.entries())
+      .map(([pair, count]) => ({ pair, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 3);
   }
 }

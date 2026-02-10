@@ -16,7 +16,7 @@ import {
   DeepInsights,
   StructuredSummary,
 } from '@main/store/types';
-import { BatchAnalysisResult } from './vlmAnalyzer';
+import { BatchAnalysisResult, ScreenshotAnalysis } from './vlmAnalyzer';
 import { InsightAnalyzer } from './insightAnalyzer';
 import { getLocalDateString } from './dateUtils';
 
@@ -64,6 +64,9 @@ export class ReportGenerator {
 
     // Compute deep insights if not provided
     const deepInsights = insights || this.insightAnalyzer.analyze(clampedRecords);
+
+    // Enrich deep work sessions with VLM output context
+    this.enrichDeepWorkSessions(deepInsights, vlmAnalysisResults);
 
     // Convert VLM analysis to activities
     const activities = this.convertToActivities(vlmAnalysisResults);
@@ -244,13 +247,8 @@ export class ReportGenerator {
     insights: DeepInsights,
     totalScreenTime: number,
   ): StructuredSummary {
-    // Collect narrative from VLM overall summaries
-    const narrativeParts = vlmResults
-      .map((r) => r.summary)
-      .filter((s) => s && s !== '已记录活动（分析不可用）');
-    const narrative = narrativeParts.length > 0
-      ? narrativeParts.join(' ')
-      : '今日活动数据已记录。';
+    // Collect narrative from VLM overall summaries (with dedup)
+    const narrative = this.mergeNarratives(vlmResults);
 
     // Collect keyAccomplishments from VLM results
     const keyAccomplishments: string[] = [];
@@ -332,6 +330,15 @@ export class ReportGenerator {
       suggestions.push('尝试使用番茄工作法提升专注度');
     }
 
+    // Milestones from longest deep work sessions + VLM accomplishments
+    const milestones = this.generateMilestones(insights, vlmResults);
+
+    // Attention drain from top switch pairs
+    const attentionDrain = this.generateAttentionDrain(insights);
+
+    // Unresolved errors from VLM blocker signals
+    const unresolvedErrors = this.collectUnresolvedErrors(vlmResults);
+
     return {
       narrative,
       keyAccomplishments: [...new Set(keyAccomplishments)],
@@ -339,7 +346,181 @@ export class ReportGenerator {
       blockers: [...new Set(blockers)],
       efficiencyHighlights,
       suggestions,
+      milestones: milestones.length > 0 ? milestones : undefined,
+      attentionDrain: attentionDrain.length > 0 ? attentionDrain : undefined,
+      unresolvedErrors: unresolvedErrors.length > 0 ? unresolvedErrors : undefined,
     };
+  }
+
+  /**
+   * Merge narrative summaries from multiple VLM batches, removing duplicate sentences
+   */
+  private mergeNarratives(vlmResults: BatchAnalysisResult[]): string {
+    const parts = vlmResults
+      .map((r) => r.summary)
+      .filter((s) => s && s !== '已记录活动（分析不可用）');
+
+    if (parts.length === 0) return '今日活动数据已记录。';
+    if (parts.length === 1) return parts[0];
+
+    // Split all summaries into sentences
+    const allSentences: string[] = [];
+    for (const part of parts) {
+      const sentences = part.split(/[。！？]/).filter((s) => s.trim().length > 0);
+      for (const sentence of sentences) {
+        const trimmed = sentence.trim();
+        // Check if this sentence is too similar to any existing one
+        const isDuplicate = allSentences.some(
+          (existing) => this.stringSimilarity(existing, trimmed) > 0.7,
+        );
+        if (!isDuplicate) {
+          allSentences.push(trimmed);
+        }
+      }
+    }
+
+    return allSentences.join('。') + '。';
+  }
+
+  /**
+   * Calculate bigram-based string similarity (Jaccard coefficient)
+   */
+  private stringSimilarity(a: string, b: string): number {
+    if (a === b) return 1;
+    if (a.length < 2 || b.length < 2) return 0;
+
+    const bigramsA = new Set<string>();
+    for (let i = 0; i < a.length - 1; i++) {
+      bigramsA.add(a.substring(i, i + 2));
+    }
+
+    const bigramsB = new Set<string>();
+    for (let i = 0; i < b.length - 1; i++) {
+      bigramsB.add(b.substring(i, i + 2));
+    }
+
+    let intersection = 0;
+    for (const bigram of bigramsA) {
+      if (bigramsB.has(bigram)) intersection++;
+    }
+
+    const union = bigramsA.size + bigramsB.size - intersection;
+    return union > 0 ? intersection / union : 0;
+  }
+
+  /**
+   * Enrich deep work sessions with VLM output context (keyOutput, filesWorkedOn)
+   */
+  private enrichDeepWorkSessions(
+    insights: DeepInsights,
+    vlmResults: BatchAnalysisResult[],
+  ): void {
+    // Collect all screenshot analyses with timestamps
+    const allAnalyses: ScreenshotAnalysis[] = [];
+    for (const result of vlmResults) {
+      allAnalyses.push(...result.analyses);
+    }
+
+    for (const session of insights.focusMetrics.deepWorkSessions) {
+      // Find analyses that overlap with this deep work session
+      const overlapping = allAnalyses.filter(
+        (a) => a.timestamp >= session.startTime && a.timestamp <= session.endTime,
+      );
+
+      if (overlapping.length === 0) continue;
+
+      // Extract files worked on (match common source file extensions)
+      const files = new Set<string>();
+      for (const analysis of overlapping) {
+        const fileMatches = analysis.summary.match(/[\w./-]+\.(?:ts|tsx|js|jsx|py|go|rs|java|cpp|c|h|css|html|vue|svelte|rb|swift|kt)/g);
+        if (fileMatches) {
+          for (const f of fileMatches) files.add(f);
+        }
+      }
+
+      // Pick the most descriptive activity as keyOutput
+      const bestAnalysis = overlapping.reduce((a, b) =>
+        a.summary.length > b.summary.length ? a : b,
+      );
+
+      session.keyOutput = bestAnalysis.summary;
+      if (files.size > 0) {
+        session.filesWorkedOn = Array.from(files).slice(0, 5);
+      }
+    }
+  }
+
+  /**
+   * Generate milestones from deep work sessions + VLM accomplishments
+   */
+  private generateMilestones(
+    insights: DeepInsights,
+    vlmResults: BatchAnalysisResult[],
+  ): string[] {
+    const milestones: string[] = [];
+    const sessions = [...insights.focusMetrics.deepWorkSessions]
+      .sort((a, b) => b.duration - a.duration);
+
+    for (const session of sessions.slice(0, 3)) {
+      const startStr = new Date(session.startTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      const endStr = new Date(session.endTime).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      const mins = Math.floor(session.duration / (1000 * 60));
+
+      // Find VLM accomplishments that overlap with this session
+      let accomplishment = '';
+      for (const result of vlmResults) {
+        if (!result.keyAccomplishments || result.keyAccomplishments.length === 0) continue;
+        // Check if any analysis in this batch overlaps with the session
+        const hasOverlap = result.analyses.some(
+          (a) => a.timestamp >= session.startTime && a.timestamp <= session.endTime,
+        );
+        if (hasOverlap) {
+          accomplishment = result.keyAccomplishments[0];
+          break;
+        }
+      }
+
+      if (accomplishment) {
+        milestones.push(`${startStr}-${endStr} 的 ${mins}m 深度工作中完成：${accomplishment}`);
+      } else if (session.keyOutput) {
+        milestones.push(`${startStr}-${endStr} 的 ${mins}m 深度工作：${session.keyOutput}`);
+      }
+    }
+
+    return milestones;
+  }
+
+  /**
+   * Generate attention drain insights from top switch pairs
+   */
+  private generateAttentionDrain(
+    insights: DeepInsights,
+  ): { topSwitchPair: string; switchCount: number; suggestion: string }[] {
+    const topPairs = insights.focusMetrics.topSwitchPairs;
+    if (!topPairs) return [];
+
+    return topPairs
+      .filter((p) => p.count >= 5)
+      .map((p) => ({
+        topSwitchPair: p.pair,
+        switchCount: p.count,
+        suggestion: `减少 ${p.pair} 之间的切换，考虑分时段集中处理`,
+      }));
+  }
+
+  /**
+   * Collect unresolved errors from VLM blocker signals
+   */
+  private collectUnresolvedErrors(vlmResults: BatchAnalysisResult[]): string[] {
+    const errors = new Set<string>();
+    for (const result of vlmResults) {
+      for (const analysis of result.analyses) {
+        if (analysis.blockerSignal) {
+          errors.add(analysis.blockerSignal);
+        }
+      }
+    }
+    return Array.from(errors).slice(0, 5);
   }
 
   /**
