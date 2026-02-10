@@ -134,17 +134,17 @@ export class AppTrackerService {
 
       const newWindowInfo: ActiveWindowInfo = { appName, windowTitle };
 
-      // Check if app changed
-      if (this.currentApp?.appName !== appName) {
-        // Save previous app usage
+      // Check if app changed OR window title changed (detects file/tab switches)
+      if (
+        this.currentApp?.appName !== appName ||
+        this.currentApp?.windowTitle !== windowTitle
+      ) {
+        // Save previous app usage (with minimum duration protection)
         this.saveCurrentAppUsage();
 
-        // Start tracking new app
+        // Start tracking new window state
         this.currentApp = newWindowInfo;
         this.currentAppStartTime = Date.now();
-      } else {
-        // Update window title if changed (same app)
-        this.currentApp = newWindowInfo;
       }
     } catch (error) {
       logger.error('AppTrackerService: Failed to get active window', error);
@@ -159,8 +159,8 @@ export class AppTrackerService {
     const endTime = Date.now();
     const duration = endTime - this.currentAppStartTime;
 
-    // Only save if duration is at least 1 second
-    if (duration < 1000) {
+    // Only save if duration is at least 2 seconds (filters high-frequency title changes)
+    if (duration < 2000) {
       return;
     }
 

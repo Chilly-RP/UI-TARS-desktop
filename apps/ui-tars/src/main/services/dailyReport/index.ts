@@ -17,6 +17,7 @@ import { AppTrackerService } from './appTracker';
 import { ScreenshotCaptureService } from './screenshotCapture';
 import { VLMAnalyzer } from './vlmAnalyzer';
 import { ReportGenerator } from './reportGenerator';
+import { InsightAnalyzer } from './insightAnalyzer';
 import { NotificationScheduler } from './notificationScheduler';
 import { getLocalDateString } from './dateUtils';
 import {
@@ -38,6 +39,7 @@ export class DailyReportService {
   private screenshotCapture: ScreenshotCaptureService;
   private vlmAnalyzer: VLMAnalyzer;
   private reportGenerator: ReportGenerator;
+  private insightAnalyzer: InsightAnalyzer;
   private notificationScheduler: NotificationScheduler;
 
   private isInitialized = false;
@@ -48,6 +50,7 @@ export class DailyReportService {
     this.screenshotCapture = new ScreenshotCaptureService();
     this.vlmAnalyzer = new VLMAnalyzer();
     this.reportGenerator = new ReportGenerator();
+    this.insightAnalyzer = new InsightAnalyzer();
     this.notificationScheduler = new NotificationScheduler();
   }
 
@@ -194,11 +197,19 @@ export class DailyReportService {
     // Collect terminal activity context
     const terminalContext = this.collectTerminalContext(targetDate);
 
-    // Analyze screenshots with VLM
+    // Compute deep insights from app usage records
+    const appUsageRecords = DailyReportStore.getAppUsageRecordsByDate(targetDate);
+    const insights = this.insightAnalyzer.analyze(appUsageRecords);
+    logger.log(
+      `DailyReportService: Insights computed - ${insights.projects.length} projects, ${insights.focusMetrics.deepWorkSessions.length} deep work sessions`,
+    );
+
+    // Analyze screenshots with VLM (pass insights for enhanced prompt)
     const vlmResults = await this.vlmAnalyzer.analyzeScreenshots(
       screenshots,
       (filePath) => this.screenshotCapture.getScreenshotAsBase64(filePath),
       terminalContext,
+      insights,
     );
 
     // Get agent interactions for today
@@ -207,12 +218,13 @@ export class DailyReportService {
       return interactionDate === targetDate;
     });
 
-    // Generate report
+    // Generate report (pass insights for enhanced summary)
     const report = this.reportGenerator.generateReport(
       targetDate,
       vlmResults,
       todayInteractions,
       terminalContext,
+      insights,
     );
 
     return report;
@@ -278,14 +290,18 @@ export class DailyReportService {
     // Shell history (opt-in)
     let shellHistoryCommands: TerminalActivityContext['shellHistoryCommands'] = [];
     let shellHistoryAvailable = false;
+    let shellHistoryHasTimestamps = false;
 
     if (settings.enableShellHistory && settings.shellHistoryPath) {
       try {
+        const historyStatus = checkExtendedHistoryStatus(settings.shellHistoryPath);
+        shellHistoryHasTimestamps = historyStatus.extendedHistoryEnabled;
+
         const entries = getCommandsForDate(settings.shellHistoryPath, date);
         shellHistoryCommands = summarizeCommands(entries);
         shellHistoryAvailable = true;
         logger.log(
-          `DailyReportService: Shell history collected ${entries.length} entries, ${shellHistoryCommands.length} unique commands`,
+          `DailyReportService: Shell history collected ${entries.length} entries, ${shellHistoryCommands.length} unique commands, hasTimestamps=${shellHistoryHasTimestamps}`,
         );
       } catch (error) {
         logger.error('DailyReportService: Failed to collect shell history', error);
@@ -296,6 +312,7 @@ export class DailyReportService {
       windowTitleCommands,
       shellHistoryCommands,
       shellHistoryAvailable,
+      shellHistoryHasTimestamps,
     };
   }
 

@@ -101,6 +101,51 @@ export interface AgentInteraction {
   timestamp: number;
 }
 
+// Deep Insights Types
+export interface ProjectContext {
+  projectName: string;
+  totalDuration: number;
+  percentage: number;
+  apps: string[];
+}
+
+export interface DeepWorkSession {
+  startTime: number;
+  endTime: number;
+  duration: number;
+  primaryApp: string;
+  project?: string;
+}
+
+export interface FrustrationSignal {
+  type: 'rapid_switch' | 'repeated_search' | 'restart_loop';
+  description: string;
+  timeRange: string;
+}
+
+export interface FocusMetrics {
+  deepWorkSessions: DeepWorkSession[];
+  totalDeepWorkMs: number;
+  deepWorkRatio: number;
+  contextSwitchesPerHour: number;
+  distractionSources: { appName: string; interruptions: number }[];
+  frustrationSignals: FrustrationSignal[];
+}
+
+export interface DeepInsights {
+  projects: ProjectContext[];
+  focusMetrics: FocusMetrics;
+}
+
+export interface StructuredSummary {
+  narrative: string;
+  keyAccomplishments: string[];
+  knowledgeExplored: string[];
+  blockers: string[];
+  efficiencyHighlights: string[];
+  suggestions: string[];
+}
+
 export interface DailyReport {
   id: string;
   date: string; // YYYY-MM-DD
@@ -110,6 +155,8 @@ export interface DailyReport {
   agentInteractions: AgentInteraction[];
   summary: string;
   generatedAt: number;
+  insights?: DeepInsights;
+  structuredSummary?: StructuredSummary;
 }
 
 // Terminal Activity Context (passed to report generator and VLM)
@@ -123,6 +170,7 @@ export interface TerminalActivityContext {
   windowTitleCommands: TerminalCommandSummary[];
   shellHistoryCommands: TerminalCommandSummary[];
   shellHistoryAvailable: boolean;
+  shellHistoryHasTimestamps: boolean;
 }
 
 export const DEFAULT_DAILY_REPORT_SETTINGS: DailyReportSettings = {

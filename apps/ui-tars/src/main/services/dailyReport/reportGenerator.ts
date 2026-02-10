@@ -13,11 +13,16 @@ import {
   AgentInteraction,
   AppUsageRecord,
   TerminalActivityContext,
+  DeepInsights,
+  StructuredSummary,
 } from '@main/store/types';
 import { BatchAnalysisResult } from './vlmAnalyzer';
+import { InsightAnalyzer } from './insightAnalyzer';
 import { getLocalDateString } from './dateUtils';
 
 export class ReportGenerator {
+  private insightAnalyzer = new InsightAnalyzer();
+
   /**
    * Generate a daily report for a specific date
    */
@@ -26,6 +31,7 @@ export class ReportGenerator {
     vlmAnalysisResults: BatchAnalysisResult[],
     agentInteractions: AgentInteraction[],
     terminalContext?: TerminalActivityContext,
+    insights?: DeepInsights,
   ): DailyReport {
     logger.log(`ReportGenerator: Generating report for ${date}`);
 
@@ -56,16 +62,27 @@ export class ReportGenerator {
       0,
     );
 
+    // Compute deep insights if not provided
+    const deepInsights = insights || this.insightAnalyzer.analyze(clampedRecords);
+
     // Convert VLM analysis to activities
     const activities = this.convertToActivities(vlmAnalysisResults);
 
-    // Generate overall summary
+    // Generate overall summary (enhanced with insights)
     const summary = this.generateSummary(
       appUsage,
       totalScreenTime,
       activities,
       agentInteractions,
       terminalContext,
+      deepInsights,
+    );
+
+    // Generate structured summary from VLM results + insights
+    const structuredSummary = this.generateStructuredSummary(
+      vlmAnalysisResults,
+      deepInsights,
+      totalScreenTime,
     );
 
     const report: DailyReport = {
@@ -77,6 +94,8 @@ export class ReportGenerator {
       agentInteractions,
       summary,
       generatedAt: Date.now(),
+      insights: deepInsights,
+      structuredSummary,
     };
 
     logger.log(
@@ -135,6 +154,7 @@ export class ReportGenerator {
     activities: ActivitySummary[],
     agentInteractions: AgentInteraction[],
     terminalContext?: TerminalActivityContext,
+    insights?: DeepInsights,
   ): string {
     const hours = Math.floor(totalScreenTime / (1000 * 60 * 60));
     const minutes = Math.floor(
@@ -143,8 +163,39 @@ export class ReportGenerator {
 
     const timeStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 
-    // Get top 3 apps
-    const topApps = appUsage.slice(0, 3).map((a) => a.appName);
+    // Build summary parts
+    const parts: string[] = [];
+
+    // Enhanced screen time with deep work info
+    if (insights && insights.focusMetrics.totalDeepWorkMs > 0) {
+      const deepMinutes = Math.floor(insights.focusMetrics.totalDeepWorkMs / (1000 * 60));
+      const deepRatio = Math.round(insights.focusMetrics.deepWorkRatio * 100);
+      parts.push(`总屏幕时间：${timeStr}（深度工作 ${deepMinutes}m，占比 ${deepRatio}%）`);
+    } else {
+      parts.push(`总屏幕时间：${timeStr}`);
+    }
+
+    // Projects instead of top apps
+    if (insights && insights.projects.length > 0) {
+      const topProjects = insights.projects
+        .filter((p) => p.projectName !== '其他')
+        .slice(0, 3);
+      if (topProjects.length > 0) {
+        const projectStrs = topProjects.map((p) => {
+          const mins = Math.floor(p.totalDuration / (1000 * 60));
+          return `${p.projectName}（${mins}m）`;
+        });
+        parts.push(`主要项目：${projectStrs.join('、')}`);
+      }
+    }
+
+    // Fallback to top apps if no projects
+    if (!insights || insights.projects.filter((p) => p.projectName !== '其他').length === 0) {
+      const topApps = appUsage.slice(0, 3).map((a) => a.appName);
+      if (topApps.length > 0) {
+        parts.push(`最常用应用：${topApps.join('、')}`);
+      }
+    }
 
     // Get unique topics from activities
     const allTopics = new Set<string>();
@@ -154,16 +205,6 @@ export class ReportGenerator {
       }
     }
     const topicsList = Array.from(allTopics).slice(0, 5);
-
-    // Build summary parts
-    const parts: string[] = [];
-
-    parts.push(`总屏幕时间：${timeStr}`);
-
-    if (topApps.length > 0) {
-      parts.push(`最常用应用：${topApps.join('、')}`);
-    }
-
     if (topicsList.length > 0) {
       parts.push(`主要话题：${topicsList.join('、')}`);
     }
@@ -182,11 +223,129 @@ export class ReportGenerator {
       parts.push(terminalPart);
     }
 
+    // Efficiency hints from insights
+    if (insights) {
+      const topDistraction = insights.focusMetrics.distractionSources[0];
+      if (topDistraction && topDistraction.interruptions >= 2) {
+        parts.push(
+          `效率提示：${topDistraction.appName} 打断了 ${topDistraction.interruptions} 次深度工作`,
+        );
+      }
+    }
+
     return parts.join('。') + '。';
   }
 
   /**
-   * Build terminal activity summary text from terminal context
+   * Generate structured summary from VLM results + computed insights
+   */
+  private generateStructuredSummary(
+    vlmResults: BatchAnalysisResult[],
+    insights: DeepInsights,
+    totalScreenTime: number,
+  ): StructuredSummary {
+    // Collect narrative from VLM overall summaries
+    const narrativeParts = vlmResults
+      .map((r) => r.summary)
+      .filter((s) => s && s !== '已记录活动（分析不可用）');
+    const narrative = narrativeParts.length > 0
+      ? narrativeParts.join(' ')
+      : '今日活动数据已记录。';
+
+    // Collect keyAccomplishments from VLM results
+    const keyAccomplishments: string[] = [];
+    for (const result of vlmResults) {
+      if (result.keyAccomplishments) {
+        keyAccomplishments.push(...result.keyAccomplishments);
+      }
+    }
+
+    // Collect knowledgeExplored from VLM results
+    const knowledgeExplored: string[] = [];
+    for (const result of vlmResults) {
+      if (result.knowledgeExplored) {
+        knowledgeExplored.push(...result.knowledgeExplored);
+      }
+    }
+
+    // Collect blockers from VLM + frustration signals
+    const blockers: string[] = [];
+    for (const result of vlmResults) {
+      if (result.blockers) {
+        blockers.push(...result.blockers);
+      }
+    }
+    for (const signal of insights.focusMetrics.frustrationSignals) {
+      blockers.push(`${signal.description}（${signal.timeRange}）`);
+    }
+
+    // Generate efficiency highlights from metrics
+    const efficiencyHighlights: string[] = [];
+    const { focusMetrics } = insights;
+
+    if (focusMetrics.deepWorkRatio > 0) {
+      const deepMinutes = Math.floor(focusMetrics.totalDeepWorkMs / (1000 * 60));
+      const ratio = Math.round(focusMetrics.deepWorkRatio * 100);
+      efficiencyHighlights.push(
+        `今日深度工作 ${deepMinutes} 分钟，占屏幕时间 ${ratio}%`,
+      );
+    }
+
+    if (focusMetrics.deepWorkRatio < 0.3 && totalScreenTime > 30 * 60 * 1000) {
+      efficiencyHighlights.push('深度工作时间偏低，建议减少应用切换');
+    }
+
+    for (const source of focusMetrics.distractionSources) {
+      if (source.interruptions >= 2) {
+        efficiencyHighlights.push(
+          `${source.appName} 今日打断了 ${source.interruptions} 次深度工作`,
+        );
+      }
+    }
+
+    if (focusMetrics.contextSwitchesPerHour > 30) {
+      efficiencyHighlights.push(
+        `每小时应用切换 ${focusMetrics.contextSwitchesPerHour} 次，频率较高`,
+      );
+    }
+
+    if (focusMetrics.deepWorkSessions.length > 0) {
+      const longestSession = focusMetrics.deepWorkSessions.reduce((a, b) =>
+        a.duration > b.duration ? a : b,
+      );
+      const longestMin = Math.floor(longestSession.duration / (1000 * 60));
+      efficiencyHighlights.push(
+        `最长深度工作段 ${longestMin} 分钟（${longestSession.primaryApp}）`,
+      );
+    }
+
+    // Generate suggestions
+    const suggestions: string[] = [];
+    const topProject = insights.projects.find((p) => p.projectName !== '其他');
+    if (topProject) {
+      suggestions.push(`继续推进 ${topProject.projectName} 项目`);
+    }
+    if (blockers.length > 0) {
+      suggestions.push('排查今日遇到的技术阻塞');
+    }
+    if (focusMetrics.deepWorkRatio < 0.3 && totalScreenTime > 30 * 60 * 1000) {
+      suggestions.push('尝试使用番茄工作法提升专注度');
+    }
+
+    return {
+      narrative,
+      keyAccomplishments: [...new Set(keyAccomplishments)],
+      knowledgeExplored: [...new Set(knowledgeExplored)],
+      blockers: [...new Set(blockers)],
+      efficiencyHighlights,
+      suggestions,
+    };
+  }
+
+  /**
+   * Build terminal activity summary text from terminal context.
+   * Always merges both windowTitle and shellHistory commands regardless of timestamp availability.
+   * Includes representative examples for top commands.
    */
   private buildTerminalSummaryPart(
     context?: TerminalActivityContext,
@@ -196,24 +355,40 @@ export class ReportGenerator {
     }
 
     // Merge commands from both sources, dedup by baseCommand
-    const merged = new Map<string, number>();
-    for (const cmd of context.windowTitleCommands) {
-      merged.set(cmd.baseCommand, (merged.get(cmd.baseCommand) || 0) + cmd.count);
-    }
-    for (const cmd of context.shellHistoryCommands) {
-      merged.set(cmd.baseCommand, (merged.get(cmd.baseCommand) || 0) + cmd.count);
+    const merged = new Map<string, { count: number; examples: string[] }>();
+    const allSources = [...context.windowTitleCommands, ...context.shellHistoryCommands];
+    for (const cmd of allSources) {
+      const existing = merged.get(cmd.baseCommand);
+      if (existing) {
+        existing.count += cmd.count;
+        for (const ex of cmd.examples) {
+          if (existing.examples.length < 2 && !existing.examples.includes(ex)) {
+            existing.examples.push(ex);
+          }
+        }
+      } else {
+        merged.set(cmd.baseCommand, { count: cmd.count, examples: cmd.examples.slice(0, 2) });
+      }
     }
 
     if (merged.size === 0) {
       return null;
     }
 
-    const topCommands = Array.from(merged.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
-      .map(([cmd]) => cmd);
+    const topEntries = Array.from(merged.entries())
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 6);
 
-    return `终端活动：主要使用了 ${topCommands.join('、')}`;
+    const parts = topEntries.map(([cmd, { count, examples }]) => {
+      // If the example is just the base command itself, only show count
+      const meaningfulExamples = examples.filter((ex) => ex.trim() !== cmd);
+      if (meaningfulExamples.length > 0) {
+        return `${cmd}(${count}次, 如: ${meaningfulExamples[0]})`;
+      }
+      return `${cmd}(${count}次)`;
+    });
+
+    return `终端活动：${parts.join('、')}`;
   }
 
   /**

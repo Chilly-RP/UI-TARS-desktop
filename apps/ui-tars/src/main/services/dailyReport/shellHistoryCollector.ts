@@ -8,6 +8,7 @@ import os from 'os';
 
 import { logger } from '@main/logger';
 import { TerminalCommandSummary } from '@main/store/types';
+import { TRIVIAL_COMMANDS } from './terminalConstants';
 
 /** Sensitive keywords — commands containing these are redacted */
 const SENSITIVE_PATTERNS =
@@ -191,6 +192,9 @@ export function summarizeCommands(
     }
 
     const base = getBaseCommand(sanitized);
+    if (TRIVIAL_COMMANDS.has(base)) {
+      continue;
+    }
     const existing = map.get(base);
     if (existing) {
       existing.count++;

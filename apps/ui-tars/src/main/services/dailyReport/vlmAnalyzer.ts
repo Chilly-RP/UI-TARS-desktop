@@ -4,7 +4,7 @@
  */
 import { logger } from '@main/logger';
 import { SettingStore } from '@main/store/setting';
-import { TerminalActivityContext } from '@main/store/types';
+import { TerminalActivityContext, DeepInsights } from '@main/store/types';
 import { CapturedScreenshot } from './screenshotCapture';
 
 export interface ScreenshotAnalysis {
@@ -13,6 +13,9 @@ export interface ScreenshotAnalysis {
   summary: string;
   topics: string[];
   activeApp: string;
+  project?: string;
+  workPhase?: string;
+  blockerSignal?: string;
 }
 
 export interface BatchAnalysisResult {
@@ -20,6 +23,9 @@ export interface BatchAnalysisResult {
   summary: string;
   topics: string[];
   analyses: ScreenshotAnalysis[];
+  keyAccomplishments?: string[];
+  blockers?: string[];
+  knowledgeExplored?: string[];
 }
 
 export class VLMAnalyzer {
@@ -33,6 +39,7 @@ export class VLMAnalyzer {
     screenshots: CapturedScreenshot[],
     getBase64Fn: (filePath: string) => string | null,
     terminalContext?: TerminalActivityContext,
+    insights?: DeepInsights,
   ): Promise<BatchAnalysisResult[]> {
     if (screenshots.length === 0) {
       return [];
@@ -54,7 +61,7 @@ export class VLMAnalyzer {
 
     for (const batch of batches) {
       try {
-        const batchResult = await this.analyzeBatch(batch, getBase64Fn, terminalContext);
+        const batchResult = await this.analyzeBatch(batch, getBase64Fn, terminalContext, insights);
         if (batchResult) {
           results.push(batchResult);
         }
@@ -98,6 +105,7 @@ export class VLMAnalyzer {
     batch: CapturedScreenshot[],
     getBase64Fn: (filePath: string) => string | null,
     terminalContext?: TerminalActivityContext,
+    insights?: DeepInsights,
   ): Promise<BatchAnalysisResult | null> {
     const settings = SettingStore.getStore();
 
@@ -126,29 +134,87 @@ export class VLMAnalyzer {
       return null;
     }
 
-    let terminalContextText = '';
+    // Build context sections
+    let contextText = '';
+
+    // Terminal context
     if (terminalContext) {
-      const allCmds = [
-        ...terminalContext.windowTitleCommands,
-        ...terminalContext.shellHistoryCommands,
-      ];
-      if (allCmds.length > 0) {
-        const topCmds = allCmds
-          .sort((a, b) => b.count - a.count)
+      const cmdsForVlm = terminalContext.shellHistoryHasTimestamps
+        ? [...terminalContext.windowTitleCommands, ...terminalContext.shellHistoryCommands]
+        : [...terminalContext.windowTitleCommands];
+
+      const merged = new Map<string, { count: number; examples: Set<string> }>();
+      for (const cmd of cmdsForVlm) {
+        const existing = merged.get(cmd.baseCommand);
+        if (existing) {
+          existing.count += cmd.count;
+          for (const ex of cmd.examples) {
+            if (existing.examples.size < 3) existing.examples.add(ex);
+          }
+        } else {
+          merged.set(cmd.baseCommand, { count: cmd.count, examples: new Set(cmd.examples) });
+        }
+      }
+
+      if (merged.size > 0) {
+        const lines = Array.from(merged.entries())
+          .sort((a, b) => b[1].count - a[1].count)
           .slice(0, 10)
-          .map((c) => `${c.baseCommand}(${c.count}次)`)
-          .join('、');
-        terminalContextText = `\n\n补充信息 — 用户今日的终端命令活动：${topCmds}。请在总结中自然融入终端活动描述。`;
+          .map(([base, { count, examples }]) => {
+            const exList = Array.from(examples).slice(0, 2).map((e) => `"${e}"`).join(', ');
+            return `- ${base}: ${count}次，示例: ${exList}`;
+          });
+        contextText += `\n\n用户今日的终端命令活动：\n${lines.join('\n')}`;
       }
     }
 
-    const prompt = `分析这 ${imageContents.length} 张来自电脑用户日常活动的截图。
-对于每张截图，请识别：
-1. 当前活跃的应用程序/网站
-2. 用户正在做什么
-3. 可见的关键话题或主题
+    // Project context from insights
+    if (insights && insights.projects.length > 0) {
+      const topProjects = insights.projects
+        .filter((p) => p.projectName !== '其他')
+        .slice(0, 5);
+      if (topProjects.length > 0) {
+        const projectLines = topProjects.map((p) => {
+          const mins = Math.floor(p.totalDuration / (1000 * 60));
+          return `- ${p.projectName}（${mins}分钟，涉及: ${p.apps.join('、')}）`;
+        });
+        contextText += `\n\n用户今日的项目上下文：\n${projectLines.join('\n')}`;
+      }
+    }
 
-然后提供所有活动的简要总结。
+    // Efficiency context from insights
+    if (insights) {
+      const { focusMetrics } = insights;
+      const effLines: string[] = [];
+      if (focusMetrics.totalDeepWorkMs > 0) {
+        const ratio = Math.round(focusMetrics.deepWorkRatio * 100);
+        effLines.push(`- 深度工作占比：${ratio}%`);
+      }
+      if (focusMetrics.distractionSources.length > 0) {
+        const distractions = focusMetrics.distractionSources
+          .slice(0, 3)
+          .map((d) => `${d.appName}(${d.interruptions}次)`)
+          .join('、');
+        effLines.push(`- 主要干扰源：${distractions}`);
+      }
+      for (const signal of focusMetrics.frustrationSignals.slice(0, 2)) {
+        effLines.push(`- ${signal.description}（${signal.timeRange}）`);
+      }
+      if (effLines.length > 0) {
+        contextText += `\n\n用户今日的效率数据：\n${effLines.join('\n')}`;
+      }
+    }
+
+    const prompt = `你是一个工作效率分析专家。分析以下 ${imageContents.length} 张来自电脑用户日常活动的截图，结合上下文信息，提供深度工作洞察。
+${contextText}
+
+请分析每张截图并提供结构化洞察。
+
+重要：
+- 对于每张截图的 activity 描述，请尽量具体（如具体文件名、页面内容、操作类型），不要只说"编码"或"浏览"
+- 根据终端命令的完整内容推断用户的具体活动意图
+- overallSummary 应该像一个同事在分享今天做了什么，而不是数据罗列
+- blockerSignal 请识别截图中可见的错误信息、异常堆栈、构建失败等
 
 请用中文回复，使用以下 JSON 格式：
 {
@@ -156,13 +222,19 @@ export class VLMAnalyzer {
     {
       "index": 0,
       "activeApp": "应用名称",
-      "activity": "简要描述",
-      "topics": ["话题1", "话题2"]
+      "activity": "详细描述（具体文件/页面/操作）",
+      "project": "关联项目名或null",
+      "workPhase": "coding|debugging|documentation|research|communication|other",
+      "topics": ["话题1", "话题2"],
+      "blockerSignal": "截图中可见的错误/异常信息，或null"
     }
   ],
-  "overallSummary": "所有活动的简要总结",
+  "overallSummary": "今日工作的叙事性总结",
+  "keyAccomplishments": ["完成的关键事项"],
+  "knowledgeExplored": ["探索的技术/知识领域"],
+  "blockers": ["遇到的困难或阻塞"],
   "mainTopics": ["主要话题1", "主要话题2"]
-}${terminalContextText}`;
+}`;
 
     try {
       const response = await fetch(`${settings.vlmBaseUrl}/chat/completions`, {
@@ -180,7 +252,7 @@ export class VLMAnalyzer {
               content: [{ type: 'text', text: prompt }, ...imageContents],
             },
           ],
-          max_tokens: 2000,
+          max_tokens: 3000,
           temperature: 0.3,
         }),
       });
@@ -228,6 +300,9 @@ export class VLMAnalyzer {
           summary: analysis?.activity || '未知活动',
           topics: analysis?.topics || [],
           activeApp: analysis?.activeApp || '未知',
+          project: analysis?.project || undefined,
+          workPhase: analysis?.workPhase || undefined,
+          blockerSignal: analysis?.blockerSignal || undefined,
         };
       });
 
@@ -240,6 +315,9 @@ export class VLMAnalyzer {
         summary: parsed.overallSummary || '活动分析',
         topics: parsed.mainTopics || [],
         analyses,
+        keyAccomplishments: parsed.keyAccomplishments || undefined,
+        blockers: parsed.blockers || undefined,
+        knowledgeExplored: parsed.knowledgeExplored || undefined,
       };
     } catch (error) {
       logger.error('VLMAnalyzer: Failed to parse VLM response', error);

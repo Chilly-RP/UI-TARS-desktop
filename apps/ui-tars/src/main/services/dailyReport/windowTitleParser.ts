@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import { AppUsageRecord, TerminalCommandSummary } from '@main/store/types';
+import { TRIVIAL_COMMANDS } from './terminalConstants';
 
 const TERMINAL_APPS = new Set([
   'Terminal',
@@ -123,6 +124,9 @@ export function summarizeTerminalActivities(
   const map = new Map<string, { count: number; examples: Set<string> }>();
 
   for (const { command, baseCommand } of activities) {
+    if (TRIVIAL_COMMANDS.has(baseCommand)) {
+      continue;
+    }
     const existing = map.get(baseCommand);
     if (existing) {
       existing.count++;
