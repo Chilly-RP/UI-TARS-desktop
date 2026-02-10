@@ -32,6 +32,7 @@ export class ReportGenerator {
     agentInteractions: AgentInteraction[],
     terminalContext?: TerminalActivityContext,
     insights?: DeepInsights,
+    refinedNarrative?: string,
   ): DailyReport {
     logger.log(`ReportGenerator: Generating report for ${date}`);
 
@@ -86,6 +87,7 @@ export class ReportGenerator {
       vlmAnalysisResults,
       deepInsights,
       totalScreenTime,
+      refinedNarrative,
     );
 
     const report: DailyReport = {
@@ -246,9 +248,10 @@ export class ReportGenerator {
     vlmResults: BatchAnalysisResult[],
     insights: DeepInsights,
     totalScreenTime: number,
+    refinedNarrative?: string,
   ): StructuredSummary {
-    // Collect narrative from VLM overall summaries (with dedup)
-    const narrative = this.mergeNarratives(vlmResults);
+    // Use refined narrative from LLM, fall back to bigram-dedup merge
+    const narrative = refinedNarrative || this.mergeNarratives(vlmResults);
 
     // Collect keyAccomplishments from VLM results
     const keyAccomplishments: string[] = [];
@@ -274,6 +277,7 @@ export class ReportGenerator {
       }
     }
     for (const signal of insights.focusMetrics.frustrationSignals) {
+      if (signal.type === 'rapid_switch') continue;
       blockers.push(`${signal.description}（${signal.timeRange}）`);
     }
 
@@ -336,9 +340,6 @@ export class ReportGenerator {
     // Attention drain from top switch pairs
     const attentionDrain = this.generateAttentionDrain(insights);
 
-    // Unresolved errors from VLM blocker signals
-    const unresolvedErrors = this.collectUnresolvedErrors(vlmResults);
-
     return {
       narrative,
       keyAccomplishments: [...new Set(keyAccomplishments)],
@@ -348,7 +349,6 @@ export class ReportGenerator {
       suggestions,
       milestones: milestones.length > 0 ? milestones : undefined,
       attentionDrain: attentionDrain.length > 0 ? attentionDrain : undefined,
-      unresolvedErrors: unresolvedErrors.length > 0 ? unresolvedErrors : undefined,
     };
   }
 
@@ -506,21 +506,6 @@ export class ReportGenerator {
         switchCount: p.count,
         suggestion: `减少 ${p.pair} 之间的切换，考虑分时段集中处理`,
       }));
-  }
-
-  /**
-   * Collect unresolved errors from VLM blocker signals
-   */
-  private collectUnresolvedErrors(vlmResults: BatchAnalysisResult[]): string[] {
-    const errors = new Set<string>();
-    for (const result of vlmResults) {
-      for (const analysis of result.analyses) {
-        if (analysis.blockerSignal) {
-          errors.add(analysis.blockerSignal);
-        }
-      }
-    }
-    return Array.from(errors).slice(0, 5);
   }
 
   /**

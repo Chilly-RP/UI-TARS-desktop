@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import { useState, useEffect, useCallback } from 'react';
-import { Clock, Camera, Trash2, Bell, Plus, X, Terminal, Info } from 'lucide-react';
+import { Clock, Camera, Trash2, Bell, Plus, X, Terminal, Info, Brain } from 'lucide-react';
 
 import { api } from '@renderer/api';
 import { Button } from '@renderer/components/ui/button';
@@ -244,6 +244,25 @@ export function DailyReportSettingsPanel() {
           />
         </div>
         <p className="text-sm text-gray-500">接收每日报告通知的时间</p>
+      </div>
+
+      {/* VLM Model Name */}
+      <div className="space-y-2">
+        <Label className="flex items-center gap-2">
+          <Brain className="h-4 w-4" />
+          日报 VLM 模型
+        </Label>
+        <Input
+          placeholder="留空则使用主 VLM 模型（建议: Doubao-1.5-thinking-vision-pro）"
+          value={settings.vlmModelName || ''}
+          onChange={(e) =>
+            updateSettings({ vlmModelName: e.target.value || undefined })
+          }
+          disabled={!settings.enabled}
+        />
+        <p className="text-sm text-gray-500">
+          日报截图分析使用的视觉语言模型名称，留空则使用主设置中的 VLM 模型
+        </p>
       </div>
 
       {/* Terminal Shell History */}

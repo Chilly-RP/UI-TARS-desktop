@@ -71,6 +71,7 @@ export interface DailyReportSettings {
   excludedApps: string[];
   enableShellHistory: boolean;
   shellHistoryPath: string;
+  vlmModelName?: string; // 日报专用 VLM 模型名，空则回退主 VLM
 }
 
 export interface AppUsageRecord {
@@ -151,7 +152,6 @@ export interface StructuredSummary {
   suggestions: string[];
   milestones?: string[];
   attentionDrain?: { topSwitchPair: string; switchCount: number; suggestion: string }[];
-  unresolvedErrors?: string[];
 }
 
 export interface DailyReport {

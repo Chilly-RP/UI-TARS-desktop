@@ -179,3 +179,17 @@ body {
 .dark .streaming-cursor {
   color: oklch(0.623 0.214 259.815); /* blue-400 for dark mode */
 }
+
+@media print {
+  body, #root {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  [data-radix-scroll-area-viewport] {
+    overflow: visible !important;
+    height: auto !important;
+  }
+  [data-radix-scroll-area-scrollbar] {
+    display: none !important;
+  }
+}

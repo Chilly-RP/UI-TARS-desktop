@@ -212,6 +212,9 @@ export class DailyReportService {
       insights,
     );
 
+    // Refine narrative via LLM (merge multiple batch summaries)
+    const refinedNarrative = await this.vlmAnalyzer.refineNarrative(vlmResults);
+
     // Get agent interactions for today
     const todayInteractions = this.agentInteractions.filter((i) => {
       const interactionDate = getLocalDateString(i.timestamp);
@@ -225,6 +228,7 @@ export class DailyReportService {
       todayInteractions,
       terminalContext,
       insights,
+      refinedNarrative ?? undefined,
     );
 
     return report;

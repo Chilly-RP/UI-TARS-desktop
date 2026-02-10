@@ -21,7 +21,6 @@ import { Button } from '@renderer/components/ui/button';
 import { ScrollArea } from '@renderer/components/ui/scroll-area';
 import { DragArea } from '@renderer/components/Common/drag';
 import { ReportSummary } from '@renderer/components/DailyReport/ReportSummary';
-import { AppUsageChart } from '@renderer/components/DailyReport/AppUsageChart';
 import { ActivityTimeline } from '@renderer/components/DailyReport/ActivityTimeline';
 import {
   Dialog,
@@ -179,11 +178,11 @@ export default function DailyReportPage() {
   const isFuture = new Date(currentDate) > new Date();
 
   return (
-    <div className="h-screen flex flex-col bg-white">
+    <div className="h-screen flex flex-col bg-white print:h-auto print:overflow-visible">
       <DragArea />
 
       {/* Header */}
-      <div className="border-b px-6 py-4 flex items-center justify-between">
+      <div className="border-b px-6 py-4 flex items-center justify-between print:hidden">
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-semibold">每日报告</h1>
           <div className="flex items-center gap-2">
@@ -279,7 +278,6 @@ export default function DailyReportPage() {
           ) : report ? (
             <>
               <ReportSummary report={report} />
-              <AppUsageChart appUsage={report.appUsage} />
               <ActivityTimeline
                 activities={report.activities}
                 agentInteractions={report.agentInteractions}

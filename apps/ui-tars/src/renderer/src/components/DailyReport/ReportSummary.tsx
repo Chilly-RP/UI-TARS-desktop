@@ -18,10 +18,10 @@ import {
   FolderGit2,
   Target,
   Repeat,
-  Bug,
 } from 'lucide-react';
 
 import { DailyReport } from '@main/store/types';
+import { AppUsageChart } from './AppUsageChart';
 
 interface ReportSummaryProps {
   report: DailyReport;
@@ -170,6 +170,9 @@ export function ReportSummary({ report }: ReportSummaryProps) {
         </div>
       </div>
 
+      {/* APP Usage Chart */}
+      <AppUsageChart appUsage={report.appUsage} />
+
       {/* Narrative Summary */}
       <div className="rounded-lg border bg-gray-50 p-4">
         <h3 className="text-sm font-medium text-gray-700 mb-2">摘要</h3>
@@ -212,6 +215,15 @@ export function ReportSummary({ report }: ReportSummaryProps) {
       {/* Structured Details */}
       {hasStructured && (
         <div className="space-y-2">
+          {structuredSummary.milestones && structuredSummary.milestones.length > 0 && (
+            <CollapsibleSection
+              title="今日里程碑"
+              icon={<Target className="h-4 w-4" />}
+              items={structuredSummary.milestones}
+              emptyText="暂无里程碑"
+              colorClass="text-indigo-500"
+            />
+          )}
           <CollapsibleSection
             title="关键成就"
             icon={<Trophy className="h-4 w-4" />}
@@ -233,25 +245,6 @@ export function ReportSummary({ report }: ReportSummaryProps) {
             emptyText="今日未检测到明显阻塞"
             colorClass="text-red-500"
           />
-          <CollapsibleSection
-            title="效率洞察与建议"
-            icon={<Lightbulb className="h-4 w-4" />}
-            items={[
-              ...structuredSummary.efficiencyHighlights,
-              ...structuredSummary.suggestions,
-            ]}
-            emptyText="暂无效率建议"
-            colorClass="text-emerald-500"
-          />
-          {structuredSummary.milestones && structuredSummary.milestones.length > 0 && (
-            <CollapsibleSection
-              title="今日里程碑"
-              icon={<Target className="h-4 w-4" />}
-              items={structuredSummary.milestones}
-              emptyText="暂无里程碑"
-              colorClass="text-indigo-500"
-            />
-          )}
           {structuredSummary.attentionDrain && structuredSummary.attentionDrain.length > 0 && (
             <CollapsibleSection
               title="注意力损耗分析"
@@ -263,15 +256,16 @@ export function ReportSummary({ report }: ReportSummaryProps) {
               colorClass="text-orange-500"
             />
           )}
-          {structuredSummary.unresolvedErrors && structuredSummary.unresolvedErrors.length > 0 && (
-            <CollapsibleSection
-              title="技术债/待办"
-              icon={<Bug className="h-4 w-4" />}
-              items={structuredSummary.unresolvedErrors}
-              emptyText="暂无技术债记录"
-              colorClass="text-rose-500"
-            />
-          )}
+          <CollapsibleSection
+            title="效率洞察与建议"
+            icon={<Lightbulb className="h-4 w-4" />}
+            items={[
+              ...structuredSummary.efficiencyHighlights,
+              ...structuredSummary.suggestions,
+            ]}
+            emptyText="暂无效率建议"
+            colorClass="text-emerald-500"
+          />
         </div>
       )}
     </div>

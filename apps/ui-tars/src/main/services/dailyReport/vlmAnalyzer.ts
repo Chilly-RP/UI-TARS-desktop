@@ -4,6 +4,7 @@
  */
 import { logger } from '@main/logger';
 import { SettingStore } from '@main/store/setting';
+import { DailyReportStore } from '@main/store/dailyReportStore';
 import { TerminalActivityContext, DeepInsights } from '@main/store/types';
 import { CapturedScreenshot } from './screenshotCapture';
 
@@ -264,7 +265,7 @@ ${contextText}${batchHint}
           Authorization: `Bearer ${settings.vlmApiKey}`,
         },
         body: JSON.stringify({
-          model: settings.vlmModelName,
+          model: DailyReportStore.getSettings().vlmModelName || settings.vlmModelName,
           messages: [
             {
               role: 'user',
@@ -341,6 +342,75 @@ ${contextText}${batchHint}
     } catch (error) {
       logger.error('VLMAnalyzer: Failed to parse VLM response', error);
       return this.createFallbackResult(batch);
+    }
+  }
+
+  /**
+   * Refine narrative by calling LLM to merge multiple batch summaries into one cohesive text
+   */
+  async refineNarrative(results: BatchAnalysisResult[]): Promise<string | null> {
+    const summaries = results
+      .map((r) => r.summary)
+      .filter((s) => s && s !== '已记录活动（分析不可用）');
+
+    if (summaries.length <= 1) {
+      return null;
+    }
+
+    const settings = SettingStore.getStore();
+    if (!settings.vlmBaseUrl || !settings.vlmApiKey) {
+      return null;
+    }
+
+    const prompt = `你是一个工作效率分析专家。以下是对用户一天工作截图的多段分批摘要，请将它们合并为一段 3-5 句的简洁叙述。
+
+要求：
+- 突出关键工作成果和主要活动
+- 去除重复内容，保持语言简洁
+- 不要使用"本批截图"等分析性措辞，直接描述用户做了什么
+- 使用中文
+
+多段摘要：
+${summaries.map((s, i) => `[${i + 1}] ${s}`).join('\n')}
+
+请直接输出合并后的摘要文本，不要使用 JSON 格式。`;
+
+    try {
+      const modelName = DailyReportStore.getSettings().vlmModelName || settings.vlmModelName;
+
+      const response = await fetch(`${settings.vlmBaseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // secretlint-disable-next-line
+          Authorization: `Bearer ${settings.vlmApiKey}`,
+        },
+        body: JSON.stringify({
+          model: modelName,
+          messages: [
+            { role: 'user', content: prompt },
+          ],
+          max_tokens: 500,
+          temperature: 0.3,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`VLM API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content?.trim();
+
+      if (!content) {
+        throw new Error('No content in refine narrative response');
+      }
+
+      logger.log('VLMAnalyzer: Narrative refined successfully');
+      return content;
+    } catch (error) {
+      logger.error('VLMAnalyzer: Failed to refine narrative', error);
+      return null;
     }
   }
 
