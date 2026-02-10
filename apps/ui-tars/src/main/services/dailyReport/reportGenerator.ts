@@ -12,6 +12,7 @@ import {
   ActivitySummary,
   AgentInteraction,
   AppUsageRecord,
+  TerminalActivityContext,
 } from '@main/store/types';
 import { BatchAnalysisResult } from './vlmAnalyzer';
 import { getLocalDateString } from './dateUtils';
@@ -24,6 +25,7 @@ export class ReportGenerator {
     date: string,
     vlmAnalysisResults: BatchAnalysisResult[],
     agentInteractions: AgentInteraction[],
+    terminalContext?: TerminalActivityContext,
   ): DailyReport {
     logger.log(`ReportGenerator: Generating report for ${date}`);
 
@@ -63,6 +65,7 @@ export class ReportGenerator {
       totalScreenTime,
       activities,
       agentInteractions,
+      terminalContext,
     );
 
     const report: DailyReport = {
@@ -131,6 +134,7 @@ export class ReportGenerator {
     totalScreenTime: number,
     activities: ActivitySummary[],
     agentInteractions: AgentInteraction[],
+    terminalContext?: TerminalActivityContext,
   ): string {
     const hours = Math.floor(totalScreenTime / (1000 * 60 * 60));
     const minutes = Math.floor(
@@ -173,7 +177,43 @@ export class ReportGenerator {
       );
     }
 
+    const terminalPart = this.buildTerminalSummaryPart(terminalContext);
+    if (terminalPart) {
+      parts.push(terminalPart);
+    }
+
     return parts.join('。') + '。';
+  }
+
+  /**
+   * Build terminal activity summary text from terminal context
+   */
+  private buildTerminalSummaryPart(
+    context?: TerminalActivityContext,
+  ): string | null {
+    if (!context) {
+      return null;
+    }
+
+    // Merge commands from both sources, dedup by baseCommand
+    const merged = new Map<string, number>();
+    for (const cmd of context.windowTitleCommands) {
+      merged.set(cmd.baseCommand, (merged.get(cmd.baseCommand) || 0) + cmd.count);
+    }
+    for (const cmd of context.shellHistoryCommands) {
+      merged.set(cmd.baseCommand, (merged.get(cmd.baseCommand) || 0) + cmd.count);
+    }
+
+    if (merged.size === 0) {
+      return null;
+    }
+
+    const topCommands = Array.from(merged.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([cmd]) => cmd);
+
+    return `终端活动：主要使用了 ${topCommands.join('、')}`;
   }
 
   /**

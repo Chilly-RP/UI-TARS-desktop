@@ -4,6 +4,7 @@
  */
 import { logger } from '@main/logger';
 import { SettingStore } from '@main/store/setting';
+import { TerminalActivityContext } from '@main/store/types';
 import { CapturedScreenshot } from './screenshotCapture';
 
 export interface ScreenshotAnalysis {
@@ -31,6 +32,7 @@ export class VLMAnalyzer {
   async analyzeScreenshots(
     screenshots: CapturedScreenshot[],
     getBase64Fn: (filePath: string) => string | null,
+    terminalContext?: TerminalActivityContext,
   ): Promise<BatchAnalysisResult[]> {
     if (screenshots.length === 0) {
       return [];
@@ -52,7 +54,7 @@ export class VLMAnalyzer {
 
     for (const batch of batches) {
       try {
-        const batchResult = await this.analyzeBatch(batch, getBase64Fn);
+        const batchResult = await this.analyzeBatch(batch, getBase64Fn, terminalContext);
         if (batchResult) {
           results.push(batchResult);
         }
@@ -95,6 +97,7 @@ export class VLMAnalyzer {
   private async analyzeBatch(
     batch: CapturedScreenshot[],
     getBase64Fn: (filePath: string) => string | null,
+    terminalContext?: TerminalActivityContext,
   ): Promise<BatchAnalysisResult | null> {
     const settings = SettingStore.getStore();
 
@@ -123,6 +126,22 @@ export class VLMAnalyzer {
       return null;
     }
 
+    let terminalContextText = '';
+    if (terminalContext) {
+      const allCmds = [
+        ...terminalContext.windowTitleCommands,
+        ...terminalContext.shellHistoryCommands,
+      ];
+      if (allCmds.length > 0) {
+        const topCmds = allCmds
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 10)
+          .map((c) => `${c.baseCommand}(${c.count}次)`)
+          .join('、');
+        terminalContextText = `\n\n补充信息 — 用户今日的终端命令活动：${topCmds}。请在总结中自然融入终端活动描述。`;
+      }
+    }
+
     const prompt = `分析这 ${imageContents.length} 张来自电脑用户日常活动的截图。
 对于每张截图，请识别：
 1. 当前活跃的应用程序/网站
@@ -143,7 +162,7 @@ export class VLMAnalyzer {
   ],
   "overallSummary": "所有活动的简要总结",
   "mainTopics": ["主要话题1", "主要话题2"]
-}`;
+}${terminalContextText}`;
 
     try {
       const response = await fetch(`${settings.vlmBaseUrl}/chat/completions`, {

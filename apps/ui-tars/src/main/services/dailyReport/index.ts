@@ -10,6 +10,7 @@ import {
   DailyReport,
   DailyReportSettings,
   AgentInteraction,
+  TerminalActivityContext,
 } from '@main/store/types';
 
 import { AppTrackerService } from './appTracker';
@@ -18,6 +19,17 @@ import { VLMAnalyzer } from './vlmAnalyzer';
 import { ReportGenerator } from './reportGenerator';
 import { NotificationScheduler } from './notificationScheduler';
 import { getLocalDateString } from './dateUtils';
+import {
+  extractTerminalActivities,
+  summarizeTerminalActivities,
+} from './windowTitleParser';
+import {
+  checkExtendedHistoryStatus,
+  getCommandsForDate,
+  summarizeCommands,
+  getSetupGuideText,
+  ShellHistoryStatus,
+} from './shellHistoryCollector';
 
 export class DailyReportService {
   private static instance: DailyReportService | null = null;
@@ -179,10 +191,14 @@ export class DailyReportService {
     // Get screenshots for the date
     const screenshots = this.screenshotCapture.getScreenshotsByDate(targetDate);
 
+    // Collect terminal activity context
+    const terminalContext = this.collectTerminalContext(targetDate);
+
     // Analyze screenshots with VLM
     const vlmResults = await this.vlmAnalyzer.analyzeScreenshots(
       screenshots,
       (filePath) => this.screenshotCapture.getScreenshotAsBase64(filePath),
+      terminalContext,
     );
 
     // Get agent interactions for today
@@ -196,6 +212,7 @@ export class DailyReportService {
       targetDate,
       vlmResults,
       todayInteractions,
+      terminalContext,
     );
 
     return report;
@@ -244,6 +261,57 @@ export class DailyReportService {
     );
 
     logger.log('DailyReportService: Cleaned up old data');
+  }
+
+  /**
+   * Collect terminal activity context for a given date.
+   * Combines window title parsing and optional shell history.
+   */
+  private collectTerminalContext(date: string): TerminalActivityContext {
+    const settings = DailyReportStore.getSettings();
+
+    // Window title parsing (always available)
+    const appUsageRecords = DailyReportStore.getAppUsageRecordsByDate(date);
+    const activities = extractTerminalActivities(appUsageRecords);
+    const windowTitleCommands = summarizeTerminalActivities(activities);
+
+    // Shell history (opt-in)
+    let shellHistoryCommands: TerminalActivityContext['shellHistoryCommands'] = [];
+    let shellHistoryAvailable = false;
+
+    if (settings.enableShellHistory && settings.shellHistoryPath) {
+      try {
+        const entries = getCommandsForDate(settings.shellHistoryPath, date);
+        shellHistoryCommands = summarizeCommands(entries);
+        shellHistoryAvailable = true;
+        logger.log(
+          `DailyReportService: Shell history collected ${entries.length} entries, ${shellHistoryCommands.length} unique commands`,
+        );
+      } catch (error) {
+        logger.error('DailyReportService: Failed to collect shell history', error);
+      }
+    }
+
+    return {
+      windowTitleCommands,
+      shellHistoryCommands,
+      shellHistoryAvailable,
+    };
+  }
+
+  /**
+   * Check the status of the shell history file
+   */
+  getShellHistoryStatus(): ShellHistoryStatus {
+    const settings = DailyReportStore.getSettings();
+    return checkExtendedHistoryStatus(settings.shellHistoryPath);
+  }
+
+  /**
+   * Get setup guide for enabling EXTENDED_HISTORY
+   */
+  getShellHistorySetupGuide(): string {
+    return getSetupGuideText();
   }
 
   /**
@@ -310,3 +378,4 @@ export { ScreenshotCaptureService } from './screenshotCapture';
 export { VLMAnalyzer } from './vlmAnalyzer';
 export { ReportGenerator } from './reportGenerator';
 export { NotificationScheduler } from './notificationScheduler';
+export type { ShellHistoryStatus } from './shellHistoryCollector';

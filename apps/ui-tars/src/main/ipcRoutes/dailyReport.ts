@@ -154,6 +154,21 @@ export const dailyReportRoute = t.router({
       }
     }),
 
+  // Check shell history status
+  checkShellHistoryStatus: t.procedure.input<void>().handle(async () => {
+    try {
+      return DailyReportService.getInstance().getShellHistoryStatus();
+    } catch (error) {
+      logger.error('dailyReportRoute: Failed to check shell history status', error);
+      return { exists: false, extendedHistoryEnabled: false, lineCount: 0, path: '' };
+    }
+  }),
+
+  // Get shell history setup guide
+  getShellHistorySetupGuide: t.procedure.input<void>().handle(async () => {
+    return DailyReportService.getInstance().getShellHistorySetupGuide();
+  }),
+
   // Add agent interaction (called from agent runner)
   addAgentInteraction: t.procedure
     .input<{ instruction: string; status: string; timestamp: number }>()

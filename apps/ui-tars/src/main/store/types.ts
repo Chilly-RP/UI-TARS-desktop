@@ -69,6 +69,8 @@ export interface DailyReportSettings {
   retentionDays: number; // 1-7
   notificationTime: string; // "HH:mm"
   excludedApps: string[];
+  enableShellHistory: boolean;
+  shellHistoryPath: string;
 }
 
 export interface AppUsageRecord {
@@ -110,12 +112,27 @@ export interface DailyReport {
   generatedAt: number;
 }
 
+// Terminal Activity Context (passed to report generator and VLM)
+export interface TerminalCommandSummary {
+  baseCommand: string;
+  count: number;
+  examples: string[];
+}
+
+export interface TerminalActivityContext {
+  windowTitleCommands: TerminalCommandSummary[];
+  shellHistoryCommands: TerminalCommandSummary[];
+  shellHistoryAvailable: boolean;
+}
+
 export const DEFAULT_DAILY_REPORT_SETTINGS: DailyReportSettings = {
   enabled: false,
   screenshotIntervalMinutes: 5,
   retentionDays: 3,
   notificationTime: '20:00',
   excludedApps: [],
+  enableShellHistory: false,
+  shellHistoryPath: '~/.zsh_history',
 };
 
 export type { PresetSource, LocalStore };

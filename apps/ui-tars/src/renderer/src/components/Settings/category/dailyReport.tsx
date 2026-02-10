@@ -2,8 +2,8 @@
  * Copyright (c) 2025 Bytedance, Inc. and its affiliates.
  * SPDX-License-Identifier: Apache-2.0
  */
-import { useState, useEffect } from 'react';
-import { Clock, Camera, Trash2, Bell, Plus, X } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Clock, Camera, Trash2, Bell, Plus, X, Terminal, Info } from 'lucide-react';
 
 import { api } from '@renderer/api';
 import { Button } from '@renderer/components/ui/button';
@@ -29,6 +29,23 @@ export function DailyReportSettingsPanel() {
   } | null>(null);
   const [newExcludedApp, setNewExcludedApp] = useState('');
   const [loading, setLoading] = useState(true);
+  const [shellHistoryStatus, setShellHistoryStatus] = useState<{
+    exists: boolean;
+    extendedHistoryEnabled: boolean;
+    lineCount: number;
+    path: string;
+  } | null>(null);
+  const [setupGuide, setSetupGuide] = useState<string | null>(null);
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
+
+  const loadShellHistoryStatus = useCallback(async () => {
+    try {
+      const historyStatus = await api.checkShellHistoryStatus();
+      setShellHistoryStatus(historyStatus);
+    } catch (error) {
+      console.error('Failed to check shell history status:', error);
+    }
+  }, []);
 
   // Load settings on mount
   useEffect(() => {
@@ -40,6 +57,10 @@ export function DailyReportSettingsPanel() {
         ]);
         setSettings(loadedSettings);
         setStatus(loadedStatus);
+
+        if (loadedSettings.enableShellHistory) {
+          loadShellHistoryStatus();
+        }
       } catch (error) {
         console.error('Failed to load daily report settings:', error);
       } finally {
@@ -223,6 +244,93 @@ export function DailyReportSettingsPanel() {
           />
         </div>
         <p className="text-sm text-gray-500">接收每日报告通知的时间</p>
+      </div>
+
+      {/* Terminal Shell History */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label className="flex items-center gap-2">
+              <Terminal className="h-4 w-4" />
+              终端命令历史
+            </Label>
+            <p className="text-sm text-gray-500">
+              读取 Shell 历史记录以丰富每日报告中的终端活动描述
+            </p>
+          </div>
+          <Switch
+            checked={settings.enableShellHistory}
+            onCheckedChange={(checked) => {
+              updateSettings({ enableShellHistory: checked });
+              if (checked) {
+                loadShellHistoryStatus();
+              }
+            }}
+            disabled={!settings.enabled}
+          />
+        </div>
+
+        {settings.enableShellHistory && shellHistoryStatus && (
+          <div className="rounded-lg border p-3 bg-gray-50 space-y-2 text-sm">
+            <div className="flex items-center gap-2">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  shellHistoryStatus.exists ? 'bg-green-500' : 'bg-red-400'
+                }`}
+              />
+              <span>
+                历史文件：
+                {shellHistoryStatus.exists
+                  ? `已找到（${shellHistoryStatus.lineCount} 条记录）`
+                  : '未找到'}
+              </span>
+            </div>
+            {shellHistoryStatus.exists && (
+              <div className="flex items-center gap-2">
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    shellHistoryStatus.extendedHistoryEnabled
+                      ? 'bg-green-500'
+                      : 'bg-yellow-400'
+                  }`}
+                />
+                <span>
+                  扩展历史（含时间戳）：
+                  {shellHistoryStatus.extendedHistoryEnabled
+                    ? '已启用'
+                    : '未启用（将使用最近记录作为参考）'}
+                </span>
+              </div>
+            )}
+            {shellHistoryStatus.exists &&
+              !shellHistoryStatus.extendedHistoryEnabled && (
+                <div>
+                  <button
+                    className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm"
+                    onClick={async () => {
+                      if (!setupGuide) {
+                        try {
+                          const guide = await api.getShellHistorySetupGuide();
+                          setSetupGuide(guide);
+                        } catch (error) {
+                          console.error('Failed to get setup guide:', error);
+                        }
+                      }
+                      setShowSetupGuide(!showSetupGuide);
+                    }}
+                  >
+                    <Info className="h-3 w-3" />
+                    {showSetupGuide ? '隐藏设置向导' : '如何启用扩展历史'}
+                  </button>
+                  {showSetupGuide && setupGuide && (
+                    <pre className="mt-2 p-2 rounded bg-gray-100 text-xs whitespace-pre-wrap font-mono">
+                      {setupGuide}
+                    </pre>
+                  )}
+                </div>
+              )}
+          </div>
+        )}
       </div>
 
       {/* Excluded Apps */}

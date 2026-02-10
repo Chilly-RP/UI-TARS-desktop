@@ -53,10 +53,12 @@ export class DailyReportStore {
 
   // Settings methods
   public static getSettings(): DailyReportSettings {
-    return DailyReportStore.getInstance().get(
+    const stored = DailyReportStore.getInstance().get(
       'settings',
       DEFAULT_DAILY_REPORT_SETTINGS,
     );
+    // Merge with defaults to ensure new fields are always present
+    return { ...DEFAULT_DAILY_REPORT_SETTINGS, ...stored };
   }
 
   public static setSettings(settings: DailyReportSettings): void {
