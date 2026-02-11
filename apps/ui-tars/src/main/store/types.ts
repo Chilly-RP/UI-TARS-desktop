@@ -71,7 +71,8 @@ export interface DailyReportSettings {
   excludedApps: string[];
   enableShellHistory: boolean;
   shellHistoryPath: string;
-  vlmModelName?: string; // 日报专用 VLM 模型名，空则回退主 VLM
+  vlmModelName: 'default' | 'qwen3-vl-plus' | 'qwen3-vl-flash'; // 日报专用 VLM 模型
+  vlmApiKey?: string; // 非 default 模型的专用 API Key
 }
 
 export interface AppUsageRecord {
@@ -195,6 +196,7 @@ export const DEFAULT_DAILY_REPORT_SETTINGS: DailyReportSettings = {
   excludedApps: [],
   enableShellHistory: false,
   shellHistoryPath: '~/.zsh_history',
+  vlmModelName: 'default',
 };
 
 export type { PresetSource, LocalStore };

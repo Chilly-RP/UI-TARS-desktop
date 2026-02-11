@@ -252,16 +252,53 @@ export function DailyReportSettingsPanel() {
           <Brain className="h-4 w-4" />
           日报 VLM 模型
         </Label>
-        <Input
-          placeholder="留空则使用主 VLM 模型（建议: Doubao-1.5-thinking-vision-pro）"
-          value={settings.vlmModelName || ''}
-          onChange={(e) =>
-            updateSettings({ vlmModelName: e.target.value || undefined })
+        <Select
+          value={settings.vlmModelName || 'default'}
+          onValueChange={(value) =>
+            updateSettings({
+              vlmModelName: value as 'default' | 'qwen3-vl-plus' | 'qwen3-vl-flash',
+            })
           }
           disabled={!settings.enabled}
+        >
+          <SelectTrigger className="w-64">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="default">默认（UI-TARS）</SelectItem>
+            <SelectItem value="qwen3-vl-plus">Qwen3-VL-Plus</SelectItem>
+            <SelectItem value="qwen3-vl-flash">Qwen3-VL-Flash</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-sm text-gray-500">
+          日报截图分析使用的视觉语言模型，选择默认则使用主设置中的 VLM 模型
+        </p>
+      </div>
+
+      {/* VLM API Key (for non-default models) */}
+      <div className="space-y-2">
+        <Label className="flex items-center gap-2">
+          日报 VLM API Key
+        </Label>
+        <Input
+          type="password"
+          placeholder={
+            settings.vlmModelName === 'default' || !settings.vlmModelName
+              ? '选择默认模型时无需填写'
+              : '请输入所选模型的 API Key'
+          }
+          value={settings.vlmApiKey || ''}
+          onChange={(e) =>
+            updateSettings({ vlmApiKey: e.target.value || undefined })
+          }
+          disabled={
+            !settings.enabled ||
+            settings.vlmModelName === 'default' ||
+            !settings.vlmModelName
+          }
         />
         <p className="text-sm text-gray-500">
-          日报截图分析使用的视觉语言模型名称，留空则使用主设置中的 VLM 模型
+          选择 Qwen 模型时需要填写阿里云 DashScope API Key
         </p>
       </div>
 

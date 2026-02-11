@@ -28,11 +28,41 @@ export interface BatchAnalysisResult {
   blockers?: string[];
 }
 
+const QWEN_BASE_URL = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+
 export class VLMAnalyzer {
   private readonly BATCH_SIZE = 10;
   private readonly FETCH_TIMEOUT_MS = 120_000; // 2 分钟超时
   private readonly MAX_RETRIES = 2;
   private readonly RETRY_BASE_DELAY_MS = 2000;
+
+  /**
+   * Get model config based on daily report VLM settings
+   */
+  private getModelConfig(): { baseUrl: string; apiKey: string; modelName: string; extraBody?: Record<string, unknown> } | null {
+    const drSettings = DailyReportStore.getSettings();
+    const mainSettings = SettingStore.getStore();
+
+    if (drSettings.vlmModelName === 'default' || !drSettings.vlmModelName) {
+      if (!mainSettings.vlmBaseUrl || !mainSettings.vlmApiKey) return null;
+      return {
+        baseUrl: mainSettings.vlmBaseUrl,
+        // secretlint-disable-next-line
+        apiKey: mainSettings.vlmApiKey,
+        modelName: mainSettings.vlmModelName,
+      };
+    }
+
+    // qwen3-vl-plus / qwen3-vl-flash
+    if (!drSettings.vlmApiKey) return null;
+    return {
+      baseUrl: QWEN_BASE_URL,
+      // secretlint-disable-next-line
+      apiKey: drSettings.vlmApiKey,
+      modelName: drSettings.vlmModelName,
+      extraBody: { enable_thinking: false, thinking_budget: 81920 },
+    };
+  }
 
   /**
    * Analyze screenshots in batches using VLM
@@ -112,9 +142,9 @@ export class VLMAnalyzer {
     totalBatches: number = 1,
     externalSignal?: AbortSignal,
   ): Promise<BatchAnalysisResult | null> {
-    const settings = SettingStore.getStore();
+    const modelConfig = this.getModelConfig();
 
-    if (!settings.vlmBaseUrl || !settings.vlmApiKey) {
+    if (!modelConfig) {
       logger.warn('VLMAnalyzer: VLM settings not configured');
       return this.createFallbackResult(batch);
     }
@@ -255,15 +285,15 @@ ${contextText}${batchHint}
       ? AbortSignal.any([timeoutSignal, externalSignal])
       : timeoutSignal;
 
-    const response = await fetch(`${settings.vlmBaseUrl}/chat/completions`, {
+    const response = await fetch(`${modelConfig.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         // secretlint-disable-next-line
-        Authorization: `Bearer ${settings.vlmApiKey}`,
+        Authorization: `Bearer ${modelConfig.apiKey}`,
       },
       body: JSON.stringify({
-        model: DailyReportStore.getSettings().vlmModelName || settings.vlmModelName,
+        model: modelConfig.modelName,
         messages: [
           {
             role: 'user',
@@ -272,6 +302,7 @@ ${contextText}${batchHint}
         ],
         max_tokens: 3000,
         temperature: 0.3,
+        ...(modelConfig.extraBody || {}),
       }),
       signal: combinedSignal,
     });
@@ -351,8 +382,8 @@ ${contextText}${batchHint}
       return null;
     }
 
-    const settings = SettingStore.getStore();
-    if (!settings.vlmBaseUrl || !settings.vlmApiKey) {
+    const modelConfig = this.getModelConfig();
+    if (!modelConfig) {
       return null;
     }
 
@@ -375,22 +406,21 @@ ${summaries.map((s, i) => `[${i + 1}] ${s}`).join('\n')}
       : timeoutSignal;
 
     try {
-      const modelName = DailyReportStore.getSettings().vlmModelName || settings.vlmModelName;
-
-      const response = await fetch(`${settings.vlmBaseUrl}/chat/completions`, {
+      const response = await fetch(`${modelConfig.baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           // secretlint-disable-next-line
-          Authorization: `Bearer ${settings.vlmApiKey}`,
+          Authorization: `Bearer ${modelConfig.apiKey}`,
         },
         body: JSON.stringify({
-          model: modelName,
+          model: modelConfig.modelName,
           messages: [
             { role: 'user', content: prompt },
           ],
           max_tokens: 500,
           temperature: 0.3,
+          ...(modelConfig.extraBody || {}),
         }),
         signal: combinedSignal,
       });
