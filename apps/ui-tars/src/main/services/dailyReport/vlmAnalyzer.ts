@@ -26,12 +26,13 @@ export interface BatchAnalysisResult {
   analyses: ScreenshotAnalysis[];
   keyAccomplishments?: string[];
   blockers?: string[];
-  knowledgeExplored?: string[];
 }
 
 export class VLMAnalyzer {
   private readonly BATCH_SIZE = 10;
-  private readonly MAX_SAMPLES = 50;
+  private readonly FETCH_TIMEOUT_MS = 120_000; // 2 分钟超时
+  private readonly MAX_RETRIES = 2;
+  private readonly RETRY_BASE_DELAY_MS = 2000;
 
   /**
    * Analyze screenshots in batches using VLM
@@ -41,69 +42,59 @@ export class VLMAnalyzer {
     getBase64Fn: (filePath: string) => string | null,
     terminalContext?: TerminalActivityContext,
     insights?: DeepInsights,
+    onBatchProgress?: (batchIndex: number, totalBatches: number) => void,
   ): Promise<BatchAnalysisResult[]> {
     if (screenshots.length === 0) {
       return [];
     }
 
-    // Sample if too many screenshots
-    const sampled = this.sampleScreenshots(screenshots);
     logger.log(
-      `VLMAnalyzer: Analyzing ${sampled.length} screenshots (from ${screenshots.length} total)`,
+      `VLMAnalyzer: Analyzing ${screenshots.length} screenshots`,
     );
 
     // Split into batches
     const batches: CapturedScreenshot[][] = [];
-    for (let i = 0; i < sampled.length; i += this.BATCH_SIZE) {
-      batches.push(sampled.slice(i, i + this.BATCH_SIZE));
+    for (let i = 0; i < screenshots.length; i += this.BATCH_SIZE) {
+      batches.push(screenshots.slice(i, i + this.BATCH_SIZE));
     }
 
     const results: BatchAnalysisResult[] = [];
 
     for (let batchIdx = 0; batchIdx < batches.length; batchIdx++) {
-      try {
-        const batchResult = await this.analyzeBatch(
-          batches[batchIdx],
-          getBase64Fn,
-          terminalContext,
-          insights,
-          batchIdx,
-          batches.length,
-        );
-        if (batchResult) {
-          results.push(batchResult);
+      onBatchProgress?.(batchIdx, batches.length);
+      let success = false;
+      for (let attempt = 0; attempt <= this.MAX_RETRIES; attempt++) {
+        try {
+          if (attempt > 0) {
+            const delay = this.RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
+            logger.log(`VLMAnalyzer: 批次 ${batchIdx + 1}/${batches.length} 第 ${attempt + 1} 次重试，等待 ${delay}ms`);
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          }
+          logger.log(`VLMAnalyzer: 处理批次 ${batchIdx + 1}/${batches.length}（${batches[batchIdx].length} 张截图）`);
+          const batchResult = await this.analyzeBatch(
+            batches[batchIdx],
+            getBase64Fn,
+            terminalContext,
+            insights,
+            batchIdx,
+            batches.length,
+          );
+          if (batchResult) {
+            results.push(batchResult);
+          }
+          success = true;
+          break;
+        } catch (error) {
+          logger.error(`VLMAnalyzer: 批次 ${batchIdx + 1}/${batches.length} 失败（尝试 ${attempt + 1}/${this.MAX_RETRIES + 1}）`, error);
         }
-      } catch (error) {
-        logger.error('VLMAnalyzer: Failed to analyze batch', error);
+      }
+      if (!success) {
+        logger.warn(`VLMAnalyzer: 批次 ${batchIdx + 1}/${batches.length} 所有重试均失败，使用 fallback`);
+        results.push(this.createFallbackResult(batches[batchIdx]));
       }
     }
 
     return results;
-  }
-
-  /**
-   * Sample screenshots if there are too many
-   */
-  private sampleScreenshots(
-    screenshots: CapturedScreenshot[],
-  ): CapturedScreenshot[] {
-    if (screenshots.length <= this.MAX_SAMPLES) {
-      return screenshots;
-    }
-
-    // Sample evenly distributed screenshots
-    const interval = Math.floor(screenshots.length / this.MAX_SAMPLES);
-    const sampled: CapturedScreenshot[] = [];
-
-    for (
-      let i = 0;
-      i < screenshots.length && sampled.length < this.MAX_SAMPLES;
-      i += interval
-    ) {
-      sampled.push(screenshots[i]);
-    }
-
-    return sampled;
   }
 
   /**
@@ -251,10 +242,12 @@ ${contextText}${batchHint}
   ],
   "overallSummary": "本批截图的叙事性总结",
   "keyAccomplishments": ["完成的关键事项（关联具体文件/模块）"],
-  "knowledgeExplored": ["探索的技术/知识领域"],
   "blockers": ["遇到的困难或阻塞"],
   "mainTopics": ["主要话题1", "主要话题2"]
 }`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.FETCH_TIMEOUT_MS);
 
     try {
       const response = await fetch(`${settings.vlmBaseUrl}/chat/completions`, {
@@ -275,6 +268,7 @@ ${contextText}${batchHint}
           max_tokens: 3000,
           temperature: 0.3,
         }),
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -289,9 +283,8 @@ ${contextText}${batchHint}
       }
 
       return this.parseVLMResponse(content, batch);
-    } catch (error) {
-      logger.error('VLMAnalyzer: API call failed', error);
-      return this.createFallbackResult(batch);
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
@@ -337,7 +330,6 @@ ${contextText}${batchHint}
         analyses,
         keyAccomplishments: parsed.keyAccomplishments || undefined,
         blockers: parsed.blockers || undefined,
-        knowledgeExplored: parsed.knowledgeExplored || undefined,
       };
     } catch (error) {
       logger.error('VLMAnalyzer: Failed to parse VLM response', error);
@@ -375,6 +367,9 @@ ${summaries.map((s, i) => `[${i + 1}] ${s}`).join('\n')}
 
 请直接输出合并后的摘要文本，不要使用 JSON 格式。`;
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.FETCH_TIMEOUT_MS);
+
     try {
       const modelName = DailyReportStore.getSettings().vlmModelName || settings.vlmModelName;
 
@@ -393,6 +388,7 @@ ${summaries.map((s, i) => `[${i + 1}] ${s}`).join('\n')}
           max_tokens: 500,
           temperature: 0.3,
         }),
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -411,6 +407,8 @@ ${summaries.map((s, i) => `[${i + 1}] ${s}`).join('\n')}
     } catch (error) {
       logger.error('VLMAnalyzer: Failed to refine narrative', error);
       return null;
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 

@@ -11,6 +11,7 @@ import {
   DailyReportSettings,
   AgentInteraction,
   TerminalActivityContext,
+  ReportGenerationProgress,
 } from '@main/store/types';
 
 import { AppTrackerService } from './appTracker';
@@ -178,6 +179,15 @@ export class DailyReportService {
   }
 
   /**
+   * Broadcast generation progress to all renderer windows
+   */
+  private sendProgress(progress: ReportGenerationProgress): void {
+    BrowserWindow.getAllWindows().forEach((win) => {
+      win.webContents.send('daily-report-progress', progress);
+    });
+  }
+
+  /**
    * Generate a daily report for a specific date (or today)
    */
   async generateReport(date?: string): Promise<DailyReport | null> {
@@ -185,17 +195,45 @@ export class DailyReportService {
 
     logger.log(`DailyReportService: Generating report for ${targetDate}`);
 
+    // Stage: checking data
+    this.sendProgress({
+      stage: 'checking_data',
+      stageLabel: '检查数据充分性',
+      percent: 2,
+    });
+
     // Check if there's enough data
     if (!this.reportGenerator.hasEnoughData(targetDate)) {
       logger.warn('DailyReportService: Not enough data for report');
       return null;
     }
 
+    // Stage: collecting screenshots
+    this.sendProgress({
+      stage: 'collecting_screenshots',
+      stageLabel: '收集截图数据',
+      percent: 5,
+    });
+
     // Get screenshots for the date
     const screenshots = this.screenshotCapture.getScreenshotsByDate(targetDate);
 
+    // Stage: collecting terminal
+    this.sendProgress({
+      stage: 'collecting_terminal',
+      stageLabel: '收集终端活动',
+      percent: 10,
+    });
+
     // Collect terminal activity context
     const terminalContext = this.collectTerminalContext(targetDate);
+
+    // Stage: analyzing insights
+    this.sendProgress({
+      stage: 'analyzing_insights',
+      stageLabel: '深度洞察分析',
+      percent: 15,
+    });
 
     // Compute deep insights from app usage records
     const appUsageRecords = DailyReportStore.getAppUsageRecordsByDate(targetDate);
@@ -204,16 +242,47 @@ export class DailyReportService {
       `DailyReportService: Insights computed - ${insights.projects.length} projects, ${insights.focusMetrics.deepWorkSessions.length} deep work sessions`,
     );
 
+    // Stage: analyzing screenshots (55% weight, from 20% to 75%)
+    this.sendProgress({
+      stage: 'analyzing_screenshots',
+      stageLabel: 'VLM 批量分析截图',
+      percent: 20,
+      detail: '准备开始分析...',
+    });
+
     // Analyze screenshots with VLM (pass insights for enhanced prompt)
     const vlmResults = await this.vlmAnalyzer.analyzeScreenshots(
       screenshots,
       (filePath) => this.screenshotCapture.getScreenshotAsBase64(filePath),
       terminalContext,
       insights,
+      (batchIndex, totalBatches) => {
+        const batchPercent = 20 + Math.round((batchIndex / totalBatches) * 55);
+        this.sendProgress({
+          stage: 'analyzing_screenshots',
+          stageLabel: 'VLM 批量分析截图',
+          percent: batchPercent,
+          detail: `正在分析第 ${batchIndex + 1}/${totalBatches} 批截图...`,
+        });
+      },
     );
+
+    // Stage: refining narrative
+    this.sendProgress({
+      stage: 'refining_narrative',
+      stageLabel: 'LLM 精炼叙述',
+      percent: 80,
+    });
 
     // Refine narrative via LLM (merge multiple batch summaries)
     const refinedNarrative = await this.vlmAnalyzer.refineNarrative(vlmResults);
+
+    // Stage: generating report
+    this.sendProgress({
+      stage: 'generating_report',
+      stageLabel: '生成报告',
+      percent: 90,
+    });
 
     // Get agent interactions for today
     const todayInteractions = this.agentInteractions.filter((i) => {
@@ -230,6 +299,13 @@ export class DailyReportService {
       insights,
       refinedNarrative ?? undefined,
     );
+
+    // Stage: done
+    this.sendProgress({
+      stage: 'done',
+      stageLabel: '完成',
+      percent: 100,
+    });
 
     return report;
   }

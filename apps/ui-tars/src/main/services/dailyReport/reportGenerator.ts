@@ -261,14 +261,6 @@ export class ReportGenerator {
       }
     }
 
-    // Collect knowledgeExplored from VLM results
-    const knowledgeExplored: string[] = [];
-    for (const result of vlmResults) {
-      if (result.knowledgeExplored) {
-        knowledgeExplored.push(...result.knowledgeExplored);
-      }
-    }
-
     // Collect blockers from VLM + frustration signals
     const blockers: string[] = [];
     for (const result of vlmResults) {
@@ -343,7 +335,6 @@ export class ReportGenerator {
     return {
       narrative,
       keyAccomplishments: [...new Set(keyAccomplishments)],
-      knowledgeExplored: [...new Set(knowledgeExplored)],
       blockers: [...new Set(blockers)],
       efficiencyHighlights,
       suggestions,

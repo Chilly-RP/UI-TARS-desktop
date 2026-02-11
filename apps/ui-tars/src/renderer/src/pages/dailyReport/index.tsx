@@ -15,12 +15,13 @@ import {
 import { toast } from 'sonner';
 
 import { api } from '@renderer/api';
-import { DailyReport } from '@main/store/types';
+import { DailyReport, ReportGenerationProgress } from '@main/store/types';
 import { dailyReportManager } from '@renderer/db/dailyReport';
 import { Button } from '@renderer/components/ui/button';
 import { ScrollArea } from '@renderer/components/ui/scroll-area';
 import { DragArea } from '@renderer/components/Common/drag';
 import { ReportSummary } from '@renderer/components/DailyReport/ReportSummary';
+import { GenerationProgress } from '@renderer/components/DailyReport/GenerationProgress';
 import { ActivityTimeline } from '@renderer/components/DailyReport/ActivityTimeline';
 import {
   Dialog,
@@ -50,6 +51,9 @@ export default function DailyReportPage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [progress, setProgress] = useState<ReportGenerationProgress | null>(
+    null,
+  );
 
   // Load report for current date
   useEffect(() => {
@@ -86,6 +90,23 @@ export default function DailyReportPage() {
       unsubscribe();
     };
   }, [currentDate]);
+
+  // Listen for generation progress
+  useEffect(() => {
+    const unsubscribe = window.electron.dailyReport.onGenerationProgress(
+      (p) => {
+        if (p.stage === 'done') {
+          setProgress(null);
+        } else {
+          setProgress(p);
+        }
+      },
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   const loadReport = async (date: string) => {
     setLoading(true);
@@ -137,6 +158,7 @@ export default function DailyReportPage() {
       toast.error('生成报告失败');
     } finally {
       setGenerating(false);
+      setProgress(null);
       console.log('=== handleGenerateReport END ===');
     }
   };
@@ -271,7 +293,9 @@ export default function DailyReportPage() {
       {/* Content */}
       <ScrollArea className="flex-1">
         <div className="p-6 space-y-6">
-          {loading ? (
+          {generating && progress ? (
+            <GenerationProgress progress={progress} />
+          ) : loading ? (
             <div className="flex items-center justify-center py-20">
               <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
             </div>

@@ -12,6 +12,7 @@ import type {
   LocalStore,
   DailyReportSettings,
   DailyReport,
+  ReportGenerationProgress,
 } from '@main/store/types';
 
 export type Channels = '';
@@ -131,6 +132,17 @@ const electronHandler = {
       ipcRenderer.on('navigate-to-daily-report', handler);
       return () =>
         ipcRenderer.removeListener('navigate-to-daily-report', handler);
+    },
+    onGenerationProgress: (
+      callback: (progress: ReportGenerationProgress) => void,
+    ) => {
+      const handler = (
+        _: IpcRendererEvent,
+        progress: ReportGenerationProgress,
+      ) => callback(progress);
+      ipcRenderer.on('daily-report-progress', handler);
+      return () =>
+        ipcRenderer.removeListener('daily-report-progress', handler);
     },
   },
 };

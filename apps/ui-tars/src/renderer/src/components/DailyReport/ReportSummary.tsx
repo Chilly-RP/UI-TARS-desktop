@@ -12,7 +12,6 @@ import {
   ChevronDown,
   ChevronRight,
   Trophy,
-  BookOpen,
   AlertTriangle,
   Lightbulb,
   FolderGit2,
@@ -231,14 +230,7 @@ export function ReportSummary({ report }: ReportSummaryProps) {
             emptyText="暂无关键成就记录"
             colorClass="text-amber-500"
           />
-          <CollapsibleSection
-            title="知识探索"
-            icon={<BookOpen className="h-4 w-4" />}
-            items={structuredSummary.knowledgeExplored}
-            emptyText="暂无知识探索记录"
-            colorClass="text-blue-500"
-          />
-          <CollapsibleSection
+<CollapsibleSection
             title="困难与阻塞"
             icon={<AlertTriangle className="h-4 w-4" />}
             items={structuredSummary.blockers}

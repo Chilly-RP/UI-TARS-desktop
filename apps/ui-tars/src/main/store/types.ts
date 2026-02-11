@@ -146,7 +146,6 @@ export interface DeepInsights {
 export interface StructuredSummary {
   narrative: string;
   keyAccomplishments: string[];
-  knowledgeExplored: string[];
   blockers: string[];
   efficiencyHighlights: string[];
   suggestions: string[];
@@ -179,6 +178,13 @@ export interface TerminalActivityContext {
   shellHistoryCommands: TerminalCommandSummary[];
   shellHistoryAvailable: boolean;
   shellHistoryHasTimestamps: boolean;
+}
+
+export interface ReportGenerationProgress {
+  stage: string;
+  stageLabel: string;
+  percent: number;
+  detail?: string;
 }
 
 export const DEFAULT_DAILY_REPORT_SETTINGS: DailyReportSettings = {
