@@ -2,7 +2,7 @@
  * Copyright (c) 2025 Bytedance, Inc. and its affiliates.
  * SPDX-License-Identifier: Apache-2.0
  */
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, powerMonitor } from 'electron';
 
 import { logger } from '@main/logger';
 import { DailyReportStore } from '@main/store/dailyReportStore';
@@ -46,6 +46,7 @@ export class DailyReportService {
   private isInitialized = false;
   private agentInteractions: AgentInteraction[] = [];
   private generationAbortController: AbortController | null = null;
+  private systemIsSleeping = false;
 
   private constructor() {
     this.appTracker = new AppTrackerService();
@@ -75,6 +76,9 @@ export class DailyReportService {
 
     // Load existing screenshots from disk
     this.screenshotCapture.loadScreenshotsFromDisk();
+
+    // Register power monitor events for sleep/wake/lock/unlock detection
+    this.registerPowerMonitorEvents();
 
     // Check if service should be enabled
     const settings = DailyReportStore.getSettings();
@@ -123,6 +127,66 @@ export class DailyReportService {
     this.appTracker.stop();
     this.screenshotCapture.stop();
     this.notificationScheduler.stop();
+  }
+
+  /**
+   * Register power monitor events to pause/resume tracking during sleep/lock.
+   */
+  private registerPowerMonitorEvents(): void {
+    powerMonitor.on('suspend', () => {
+      logger.log('DailyReportService: System suspending — pausing tracking');
+      this.systemIsSleeping = true;
+      this.pauseTracking();
+    });
+
+    powerMonitor.on('resume', () => {
+      logger.log('DailyReportService: System resuming — resuming tracking');
+      this.systemIsSleeping = false;
+      this.resumeTracking();
+    });
+
+    powerMonitor.on('lock-screen', () => {
+      logger.log('DailyReportService: Screen locked — pausing tracking');
+      this.pauseTracking();
+    });
+
+    powerMonitor.on('unlock-screen', () => {
+      // Only resume on unlock if the system is not still sleeping
+      if (!this.systemIsSleeping) {
+        logger.log('DailyReportService: Screen unlocked — resuming tracking');
+        this.resumeTracking();
+      } else {
+        logger.log(
+          'DailyReportService: Screen unlocked but system still sleeping — skipping resume',
+        );
+      }
+    });
+  }
+
+  /**
+   * Pause app tracking and screenshot capture.
+   */
+  private pauseTracking(): void {
+    const settings = DailyReportStore.getSettings();
+    if (!settings.enabled) {
+      return;
+    }
+
+    this.appTracker.pause();
+    this.screenshotCapture.pause();
+  }
+
+  /**
+   * Resume app tracking and screenshot capture.
+   */
+  private resumeTracking(): void {
+    const settings = DailyReportStore.getSettings();
+    if (!settings.enabled) {
+      return;
+    }
+
+    this.appTracker.resume();
+    this.screenshotCapture.resume();
   }
 
   /**

@@ -68,8 +68,11 @@ export interface ActiveWindowInfo {
 export class AppTrackerService {
   private pollInterval: ReturnType<typeof setInterval> | null = null;
   private readonly POLL_INTERVAL_MS = 1000; // 1 second
+  private readonly GAP_THRESHOLD_MS = 30000; // 30 seconds - detect sleep/suspend gaps
   private currentApp: ActiveWindowInfo | null = null;
   private currentAppStartTime: number | null = null;
+  private lastPollTime: number | null = null;
+  private isPaused = false;
   private isRunning = false;
 
   async start(): Promise<void> {
@@ -80,7 +83,9 @@ export class AppTrackerService {
 
     logger.log('AppTrackerService: Starting app tracking');
     this.isRunning = true;
+    this.isPaused = false;
     this.currentAppStartTime = Date.now();
+    this.lastPollTime = Date.now();
     DailyReportStore.setCurrentSessionStart(this.currentAppStartTime);
 
     // Start polling
@@ -110,13 +115,80 @@ export class AppTrackerService {
     this.saveCurrentAppUsage();
 
     this.isRunning = false;
+    this.isPaused = false;
     this.currentApp = null;
     this.currentAppStartTime = null;
+    this.lastPollTime = null;
     DailyReportStore.setCurrentSessionStart(null);
+  }
+
+  /**
+   * Pause tracking (e.g., when system sleeps or screen locks).
+   * Saves current app usage with endTime=now and stops the polling timer.
+   */
+  pause(): void {
+    if (!this.isRunning || this.isPaused) {
+      return;
+    }
+
+    logger.log('AppTrackerService: Pausing tracking (system sleep/lock)');
+    this.isPaused = true;
+
+    // Save current app usage before pausing
+    this.saveCurrentAppUsage();
+    this.currentApp = null;
+    this.currentAppStartTime = null;
+
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
+    }
+  }
+
+  /**
+   * Resume tracking (e.g., when system wakes or screen unlocks).
+   * Resets timestamps and restarts the polling timer.
+   */
+  resume(): void {
+    if (!this.isRunning || !this.isPaused) {
+      return;
+    }
+
+    logger.log('AppTrackerService: Resuming tracking (system wake/unlock)');
+    this.isPaused = false;
+    this.currentAppStartTime = Date.now();
+    this.lastPollTime = Date.now();
+
+    // Restart polling
+    this.pollInterval = setInterval(() => {
+      this.trackActiveWindow().catch((err) => {
+        logger.error('AppTrackerService: Error tracking active window', err);
+      });
+    }, this.POLL_INTERVAL_MS);
+
+    // Immediate track
+    this.trackActiveWindow().catch((err) => {
+      logger.error('AppTrackerService: Error tracking active window on resume', err);
+    });
   }
 
   private async trackActiveWindow(): Promise<void> {
     try {
+      const now = Date.now();
+
+      // Layer 2: Gap detection — if time since last poll exceeds threshold,
+      // the system likely slept. Fix endTime of last record to lastPollTime.
+      if (this.lastPollTime && now - this.lastPollTime > this.GAP_THRESHOLD_MS) {
+        logger.log(
+          `AppTrackerService: Detected time gap of ${now - this.lastPollTime}ms (threshold: ${this.GAP_THRESHOLD_MS}ms), correcting last record`,
+        );
+        this.saveCurrentAppUsageWithEndTime(this.lastPollTime);
+        this.currentApp = null;
+        this.currentAppStartTime = now;
+      }
+
+      this.lastPollTime = now;
+
       const windowInfo = await getActiveWindow();
 
       if (!windowInfo) {
@@ -148,6 +220,38 @@ export class AppTrackerService {
       }
     } catch (error) {
       logger.error('AppTrackerService: Failed to get active window', error);
+    }
+  }
+
+  /**
+   * Save current app usage with a specific endTime (used for gap correction).
+   */
+  private saveCurrentAppUsageWithEndTime(endTime: number): void {
+    if (!this.currentApp || !this.currentAppStartTime) {
+      return;
+    }
+
+    const duration = endTime - this.currentAppStartTime;
+    if (duration < 2000) {
+      return;
+    }
+
+    const segments = this.splitByDate(this.currentAppStartTime, endTime);
+    for (const { start, end, date } of segments) {
+      const record: AppUsageRecord = {
+        id: uuidv4(),
+        appName: this.currentApp.appName,
+        windowTitle: this.currentApp.windowTitle,
+        startTime: start,
+        endTime: end,
+        duration: end - start,
+        date,
+      };
+
+      DailyReportStore.addAppUsageRecord(record);
+      logger.log(
+        `AppTrackerService: Saved usage (gap-corrected) for ${record.appName}: ${end - start}ms (date: ${date})`,
+      );
     }
   }
 

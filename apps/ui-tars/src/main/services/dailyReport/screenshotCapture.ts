@@ -23,6 +23,7 @@ export interface CapturedScreenshot {
 export class ScreenshotCaptureService {
   private captureInterval: ReturnType<typeof setInterval> | null = null;
   private isRunning = false;
+  private isPaused = false;
   private screenshotDir: string;
   private capturedScreenshots: CapturedScreenshot[] = [];
 
@@ -81,6 +82,51 @@ export class ScreenshotCaptureService {
     }
 
     this.isRunning = false;
+    this.isPaused = false;
+  }
+
+  /**
+   * Pause screenshot capture (e.g., when system sleeps or screen locks).
+   */
+  pause(): void {
+    if (!this.isRunning || this.isPaused) {
+      return;
+    }
+
+    logger.log('ScreenshotCaptureService: Pausing capture (system sleep/lock)');
+    this.isPaused = true;
+
+    if (this.captureInterval) {
+      clearInterval(this.captureInterval);
+      this.captureInterval = null;
+    }
+  }
+
+  /**
+   * Resume screenshot capture (e.g., when system wakes or screen unlocks).
+   */
+  resume(): void {
+    if (!this.isRunning || !this.isPaused) {
+      return;
+    }
+
+    logger.log('ScreenshotCaptureService: Resuming capture (system wake/unlock)');
+    this.isPaused = false;
+
+    const settings = DailyReportStore.getSettings();
+    const intervalMs = settings.screenshotIntervalMinutes * 60 * 1000;
+
+    // Take an immediate screenshot on resume
+    this.captureScreenshot().catch((err) => {
+      logger.error('ScreenshotCaptureService: Error capturing screenshot on resume', err);
+    });
+
+    // Restart periodic capture
+    this.captureInterval = setInterval(() => {
+      this.captureScreenshot().catch((err) => {
+        logger.error('ScreenshotCaptureService: Error capturing screenshot', err);
+      });
+    }, intervalMs);
   }
 
   async captureScreenshot(): Promise<CapturedScreenshot | null> {
