@@ -45,6 +45,7 @@ export class DailyReportService {
 
   private isInitialized = false;
   private agentInteractions: AgentInteraction[] = [];
+  private generationAbortController: AbortController | null = null;
 
   private constructor() {
     this.appTracker = new AppTrackerService();
@@ -195,6 +196,9 @@ export class DailyReportService {
 
     logger.log(`DailyReportService: Generating report for ${targetDate}`);
 
+    this.generationAbortController = new AbortController();
+    const { signal } = this.generationAbortController;
+
     // Stage: checking data
     this.sendProgress({
       stage: 'checking_data',
@@ -250,6 +254,11 @@ export class DailyReportService {
       detail: '准备开始分析...',
     });
 
+    if (signal.aborted) {
+      this.generationAbortController = null;
+      return null;
+    }
+
     // Analyze screenshots with VLM (pass insights for enhanced prompt)
     const vlmResults = await this.vlmAnalyzer.analyzeScreenshots(
       screenshots,
@@ -265,7 +274,13 @@ export class DailyReportService {
           detail: `正在分析第 ${batchIndex + 1}/${totalBatches} 批截图...`,
         });
       },
+      signal,
     );
+
+    if (signal.aborted) {
+      this.generationAbortController = null;
+      return null;
+    }
 
     // Stage: refining narrative
     this.sendProgress({
@@ -275,7 +290,12 @@ export class DailyReportService {
     });
 
     // Refine narrative via LLM (merge multiple batch summaries)
-    const refinedNarrative = await this.vlmAnalyzer.refineNarrative(vlmResults);
+    const refinedNarrative = await this.vlmAnalyzer.refineNarrative(vlmResults, signal);
+
+    if (signal.aborted) {
+      this.generationAbortController = null;
+      return null;
+    }
 
     // Stage: generating report
     this.sendProgress({
@@ -307,7 +327,19 @@ export class DailyReportService {
       percent: 100,
     });
 
+    this.generationAbortController = null;
     return report;
+  }
+
+  /**
+   * Cancel an in-progress report generation
+   */
+  cancelGeneration(): void {
+    if (this.generationAbortController) {
+      logger.log('DailyReportService: Cancelling report generation');
+      this.generationAbortController.abort();
+      this.generationAbortController = null;
+    }
   }
 
   /**

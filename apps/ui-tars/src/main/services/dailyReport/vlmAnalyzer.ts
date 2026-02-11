@@ -43,6 +43,7 @@ export class VLMAnalyzer {
     terminalContext?: TerminalActivityContext,
     insights?: DeepInsights,
     onBatchProgress?: (batchIndex: number, totalBatches: number) => void,
+    signal?: AbortSignal,
   ): Promise<BatchAnalysisResult[]> {
     if (screenshots.length === 0) {
       return [];
@@ -61,6 +62,7 @@ export class VLMAnalyzer {
     const results: BatchAnalysisResult[] = [];
 
     for (let batchIdx = 0; batchIdx < batches.length; batchIdx++) {
+      if (signal?.aborted) break;
       onBatchProgress?.(batchIdx, batches.length);
       let success = false;
       for (let attempt = 0; attempt <= this.MAX_RETRIES; attempt++) {
@@ -78,6 +80,7 @@ export class VLMAnalyzer {
             insights,
             batchIdx,
             batches.length,
+            signal,
           );
           if (batchResult) {
             results.push(batchResult);
@@ -107,6 +110,7 @@ export class VLMAnalyzer {
     insights?: DeepInsights,
     batchIndex: number = 0,
     totalBatches: number = 1,
+    externalSignal?: AbortSignal,
   ): Promise<BatchAnalysisResult | null> {
     const settings = SettingStore.getStore();
 
@@ -246,46 +250,44 @@ ${contextText}${batchHint}
   "mainTopics": ["主要话题1", "主要话题2"]
 }`;
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.FETCH_TIMEOUT_MS);
+    const timeoutSignal = AbortSignal.timeout(this.FETCH_TIMEOUT_MS);
+    const combinedSignal = externalSignal
+      ? AbortSignal.any([timeoutSignal, externalSignal])
+      : timeoutSignal;
 
-    try {
-      const response = await fetch(`${settings.vlmBaseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // secretlint-disable-next-line
-          Authorization: `Bearer ${settings.vlmApiKey}`,
-        },
-        body: JSON.stringify({
-          model: DailyReportStore.getSettings().vlmModelName || settings.vlmModelName,
-          messages: [
-            {
-              role: 'user',
-              content: [{ type: 'text', text: prompt }, ...imageContents],
-            },
-          ],
-          max_tokens: 3000,
-          temperature: 0.3,
-        }),
-        signal: controller.signal,
-      });
+    const response = await fetch(`${settings.vlmBaseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        // secretlint-disable-next-line
+        Authorization: `Bearer ${settings.vlmApiKey}`,
+      },
+      body: JSON.stringify({
+        model: DailyReportStore.getSettings().vlmModelName || settings.vlmModelName,
+        messages: [
+          {
+            role: 'user',
+            content: [{ type: 'text', text: prompt }, ...imageContents],
+          },
+        ],
+        max_tokens: 3000,
+        temperature: 0.3,
+      }),
+      signal: combinedSignal,
+    });
 
-      if (!response.ok) {
-        throw new Error(`VLM API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const content = data.choices?.[0]?.message?.content;
-
-      if (!content) {
-        throw new Error('No content in VLM response');
-      }
-
-      return this.parseVLMResponse(content, batch);
-    } finally {
-      clearTimeout(timeoutId);
+    if (!response.ok) {
+      throw new Error(`VLM API error: ${response.status}`);
     }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+
+    if (!content) {
+      throw new Error('No content in VLM response');
+    }
+
+    return this.parseVLMResponse(content, batch);
   }
 
   /**
@@ -340,7 +342,7 @@ ${contextText}${batchHint}
   /**
    * Refine narrative by calling LLM to merge multiple batch summaries into one cohesive text
    */
-  async refineNarrative(results: BatchAnalysisResult[]): Promise<string | null> {
+  async refineNarrative(results: BatchAnalysisResult[], signal?: AbortSignal): Promise<string | null> {
     const summaries = results
       .map((r) => r.summary)
       .filter((s) => s && s !== '已记录活动（分析不可用）');
@@ -367,8 +369,10 @@ ${summaries.map((s, i) => `[${i + 1}] ${s}`).join('\n')}
 
 请直接输出合并后的摘要文本，不要使用 JSON 格式。`;
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.FETCH_TIMEOUT_MS);
+    const timeoutSignal = AbortSignal.timeout(this.FETCH_TIMEOUT_MS);
+    const combinedSignal = signal
+      ? AbortSignal.any([timeoutSignal, signal])
+      : timeoutSignal;
 
     try {
       const modelName = DailyReportStore.getSettings().vlmModelName || settings.vlmModelName;
@@ -388,7 +392,7 @@ ${summaries.map((s, i) => `[${i + 1}] ${s}`).join('\n')}
           max_tokens: 500,
           temperature: 0.3,
         }),
-        signal: controller.signal,
+        signal: combinedSignal,
       });
 
       if (!response.ok) {
@@ -407,8 +411,6 @@ ${summaries.map((s, i) => `[${i + 1}] ${s}`).join('\n')}
     } catch (error) {
       logger.error('VLMAnalyzer: Failed to refine narrative', error);
       return null;
-    } finally {
-      clearTimeout(timeoutId);
     }
   }
 

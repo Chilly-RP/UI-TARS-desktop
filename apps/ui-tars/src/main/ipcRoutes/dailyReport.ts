@@ -105,6 +105,17 @@ export const dailyReportRoute = t.router({
       }
     }),
 
+  // Cancel report generation
+  cancelDailyReport: t.procedure.input<void>().handle(async () => {
+    try {
+      DailyReportService.getInstance().cancelGeneration();
+      return { success: true };
+    } catch (error) {
+      logger.error('dailyReportRoute: Failed to cancel generation', error);
+      return { success: false, error: String(error) };
+    }
+  }),
+
   // Get service status
   getDailyReportStatus: t.procedure.input<void>().handle(async () => {
     return DailyReportService.getInstance().getStatus();

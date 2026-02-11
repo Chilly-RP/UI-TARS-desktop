@@ -163,6 +163,17 @@ export default function DailyReportPage() {
     }
   };
 
+  const handleCancelReport = async () => {
+    try {
+      await api.cancelDailyReport();
+    } catch (error) {
+      console.error('Failed to cancel report:', error);
+    }
+    setGenerating(false);
+    setProgress(null);
+    toast.info('已取消报告生成');
+  };
+
   const handleExportPDF = async () => {
     setExporting(true);
     try {
@@ -294,7 +305,7 @@ export default function DailyReportPage() {
       <ScrollArea className="flex-1">
         <div className="p-6 space-y-6">
           {generating && progress ? (
-            <GenerationProgress progress={progress} />
+            <GenerationProgress progress={progress} onCancel={handleCancelReport} />
           ) : loading ? (
             <div className="flex items-center justify-center py-20">
               <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />

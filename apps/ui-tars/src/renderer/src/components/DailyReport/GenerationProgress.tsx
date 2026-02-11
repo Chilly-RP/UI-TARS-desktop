@@ -2,8 +2,9 @@
  * Copyright (c) 2025 Bytedance, Inc. and its affiliates.
  * SPDX-License-Identifier: Apache-2.0
  */
-import { Check, Loader2 } from 'lucide-react';
+import { Check, Loader2, X } from 'lucide-react';
 import type { ReportGenerationProgress } from '@main/store/types';
+import { Button } from '@renderer/components/ui/button';
 
 const STAGES = [
   { key: 'checking_data', label: '检查数据充分性' },
@@ -22,8 +23,10 @@ function getStageIndex(stage: string): number {
 
 export function GenerationProgress({
   progress,
+  onCancel,
 }: {
   progress: ReportGenerationProgress;
+  onCancel: () => void;
 }) {
   const currentIdx = getStageIndex(progress.stage);
 
@@ -84,6 +87,15 @@ export function GenerationProgress({
         {progress.detail && (
           <p className="text-xs text-gray-400 text-center">{progress.detail}</p>
         )}
+
+        {/* Hint + Cancel */}
+        <div className="flex flex-col items-center gap-3 pt-2">
+          <p className="text-xs text-gray-400">日报生成中，不要切换界面</p>
+          <Button variant="outline" size="sm" onClick={onCancel}>
+            <X className="h-3.5 w-3.5 mr-1.5" />
+            取消生成
+          </Button>
+        </div>
       </div>
     </div>
   );
