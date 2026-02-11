@@ -257,7 +257,7 @@ ${contextText}${batchHint}
 重要：
 - 对于每张截图的 activity 描述，请尽量具体（如具体文件名、页面内容、操作类型），不要只说"编码"或"浏览"
 - 根据终端命令的完整内容推断用户的具体活动意图
-- overallSummary 聚焦本批截图特有的工作内容，重点描述"做了什么"而非"在用什么工具"
+- overallSummary 聚焦本批截图特有的工作内容，重点描述用户在这段时间里使用什么工具做了什么，使用连接词例如首先，然后，最后等连接词。
 - keyAccomplishments 请关联到具体文件或功能模块
 - blockerSignal 请包含完整的错误信息文本（如截图中可见），识别错误信息、异常堆栈、构建失败等
 
@@ -440,6 +440,110 @@ ${summaries.map((s, i) => `[${i + 1}] ${s}`).join('\n')}
       return content;
     } catch (error) {
       logger.error('VLMAnalyzer: Failed to refine narrative', error);
+      return null;
+    }
+  }
+
+  /**
+   * Refine a list of items (keyAccomplishments or blockers) by calling LLM to deduplicate, merge and polish
+   */
+  async refineListItems(
+    items: string[],
+    listType: 'keyAccomplishments' | 'blockers',
+    signal?: AbortSignal,
+  ): Promise<string[] | null> {
+    if (items.length <= 2) {
+      return null;
+    }
+
+    const modelConfig = this.getModelConfig();
+    if (!modelConfig) {
+      return null;
+    }
+
+    const promptMap = {
+      keyAccomplishments: `你是一个工作效率分析专家。以下是从用户一天工作中提取的多条「关键成就」，其中可能存在重复或表述相似的条目。
+
+要求：
+- 合并重复或高度相似的条目
+- 突出具体成果，保留文件名、功能模块等关键信息
+- 输出 3-7 条精炼的成就条目
+- 使用中文
+
+原始条目：
+${items.map((s, i) => `${i + 1}. ${s}`).join('\n')}
+
+请以 JSON 数组格式输出，例如：["成就1", "成就2", "成就3"]
+只输出 JSON 数组，不要包含其他文字。`,
+      blockers: `你是一个工作效率分析专家。以下是从用户一天工作中提取的多条「困难与阻塞」，其中可能存在重复或表述相似的条目。
+
+要求：
+- 合并重复或高度相似的条目
+- 保留错误信息、异常描述和时间范围等关键细节
+- 输出精炼的阻塞条目
+- 使用中文
+
+原始条目：
+${items.map((s, i) => `${i + 1}. ${s}`).join('\n')}
+
+请以 JSON 数组格式输出，例如：["阻塞1", "阻塞2"]
+只输出 JSON 数组，不要包含其他文字。`,
+    };
+
+    const prompt = promptMap[listType];
+
+    const timeoutSignal = AbortSignal.timeout(this.FETCH_TIMEOUT_MS);
+    const combinedSignal = signal
+      ? AbortSignal.any([timeoutSignal, signal])
+      : timeoutSignal;
+
+    try {
+      const response = await fetch(`${modelConfig.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // secretlint-disable-next-line
+          Authorization: `Bearer ${modelConfig.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: modelConfig.modelName,
+          messages: [
+            { role: 'user', content: prompt },
+          ],
+          max_tokens: 500,
+          temperature: 0.3,
+          ...(modelConfig.extraBody || {}),
+        }),
+        signal: combinedSignal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`VLM API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content?.trim();
+
+      if (!content) {
+        throw new Error('No content in refine list items response');
+      }
+
+      // Parse JSON array from response
+      let jsonStr = content;
+      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        jsonStr = jsonMatch[1];
+      }
+
+      const parsed = JSON.parse(jsonStr.trim());
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        throw new Error('Invalid response format: expected non-empty array');
+      }
+
+      logger.log(`VLMAnalyzer: ${listType} refined from ${items.length} to ${parsed.length} items`);
+      return parsed.map(String);
+    } catch (error) {
+      logger.error(`VLMAnalyzer: Failed to refine ${listType}`, error);
       return null;
     }
   }

@@ -33,6 +33,8 @@ export class ReportGenerator {
     terminalContext?: TerminalActivityContext,
     insights?: DeepInsights,
     refinedNarrative?: string,
+    refinedAccomplishments?: string[],
+    refinedBlockers?: string[],
   ): DailyReport {
     logger.log(`ReportGenerator: Generating report for ${date}`);
 
@@ -88,6 +90,8 @@ export class ReportGenerator {
       deepInsights,
       totalScreenTime,
       refinedNarrative,
+      refinedAccomplishments,
+      refinedBlockers,
     );
 
     const report: DailyReport = {
@@ -249,25 +253,40 @@ export class ReportGenerator {
     insights: DeepInsights,
     totalScreenTime: number,
     refinedNarrative?: string,
+    refinedAccomplishments?: string[],
+    refinedBlockers?: string[],
   ): StructuredSummary {
     // Use refined narrative from LLM, fall back to bigram-dedup merge
     const narrative = refinedNarrative || this.mergeNarratives(vlmResults);
 
-    // Collect keyAccomplishments from VLM results
-    const keyAccomplishments: string[] = [];
-    for (const result of vlmResults) {
-      if (result.keyAccomplishments) {
-        keyAccomplishments.push(...result.keyAccomplishments);
+    // Use refined accomplishments from LLM, fall back to raw collect + dedup
+    let keyAccomplishments: string[];
+    if (refinedAccomplishments) {
+      keyAccomplishments = refinedAccomplishments;
+    } else {
+      const raw: string[] = [];
+      for (const result of vlmResults) {
+        if (result.keyAccomplishments) {
+          raw.push(...result.keyAccomplishments);
+        }
       }
+      keyAccomplishments = [...new Set(raw)];
     }
 
-    // Collect blockers from VLM + frustration signals
-    const blockers: string[] = [];
-    for (const result of vlmResults) {
-      if (result.blockers) {
-        blockers.push(...result.blockers);
+    // Use refined blockers from LLM, fall back to raw collect + dedup
+    let blockers: string[];
+    if (refinedBlockers) {
+      blockers = [...refinedBlockers];
+    } else {
+      blockers = [];
+      for (const result of vlmResults) {
+        if (result.blockers) {
+          blockers.push(...result.blockers);
+        }
       }
+      blockers = [...new Set(blockers)];
     }
+    // Always append frustration signals
     for (const signal of insights.focusMetrics.frustrationSignals) {
       if (signal.type === 'rapid_switch') continue;
       blockers.push(`${signal.description}（${signal.timeRange}）`);

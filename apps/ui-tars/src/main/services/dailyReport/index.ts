@@ -353,8 +353,16 @@ export class DailyReportService {
       percent: 80,
     });
 
-    // Refine narrative via LLM (merge multiple batch summaries)
-    const refinedNarrative = await this.vlmAnalyzer.refineNarrative(vlmResults, signal);
+    // Collect raw lists for refinement
+    const rawAccomplishments = [...new Set(vlmResults.flatMap((r) => r.keyAccomplishments || []))];
+    const rawBlockers = [...new Set(vlmResults.flatMap((r) => r.blockers || []))];
+
+    // Refine narrative, keyAccomplishments, and blockers in parallel via LLM
+    const [refinedNarrative, refinedAccomplishments, refinedBlockers] = await Promise.all([
+      this.vlmAnalyzer.refineNarrative(vlmResults, signal),
+      this.vlmAnalyzer.refineListItems(rawAccomplishments, 'keyAccomplishments', signal),
+      this.vlmAnalyzer.refineListItems(rawBlockers, 'blockers', signal),
+    ]);
 
     if (signal.aborted) {
       this.generationAbortController = null;
@@ -374,7 +382,7 @@ export class DailyReportService {
       return interactionDate === targetDate;
     });
 
-    // Generate report (pass insights for enhanced summary)
+    // Generate report (pass insights and refined content for enhanced summary)
     const report = this.reportGenerator.generateReport(
       targetDate,
       vlmResults,
@@ -382,6 +390,8 @@ export class DailyReportService {
       terminalContext,
       insights,
       refinedNarrative ?? undefined,
+      refinedAccomplishments ?? undefined,
+      refinedBlockers ?? undefined,
     );
 
     // Stage: done
